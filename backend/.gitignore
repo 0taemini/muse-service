@@ -54,8 +54,7 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
-application-local.yml
-application-local.properties
+application-screat.properties
 
 ### Generated files ###
 generated/
