@@ -42,7 +42,7 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
-application-screat.properties
+application-secret.properties
 
 ### Generated files ###
 generated/
