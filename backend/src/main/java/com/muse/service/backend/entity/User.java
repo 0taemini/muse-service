@@ -92,6 +92,18 @@ public class User {
         this.role = role;
     }
 
+    public void changeStatus(UserStatus status) {
+        this.status = status;
+    }
+
+    public void changeRole(UserRole role) {
+        this.role = role;
+    }
+
+    public void changeNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
     @PrePersist
     void onCreate() {
         LocalDateTime now = LocalDateTime.now();
