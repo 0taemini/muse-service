@@ -8,21 +8,25 @@ import org.springframework.http.HttpStatus;
 @RequiredArgsConstructor
 public enum ErrorCode {
 
-    ALL_USER_ALREADY_LINKED(HttpStatus.CONFLICT, "USER_001", "allUserId is already linked to a user account."),
-    NICKNAME_ALREADY_IN_USE(HttpStatus.CONFLICT, "USER_002", "Nickname is already in use."),
-    EMAIL_ALREADY_IN_USE(HttpStatus.CONFLICT, "USER_003", "Email is already in use."),
-    ALL_USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_004", "allUser not found."),
-    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_005", "user not found."),
-    UNREGISTERED_USER(HttpStatus.NOT_FOUND, "USER_006", "User is not registered in allUser."),
+    ALL_USER_ALREADY_LINKED(HttpStatus.CONFLICT, "USER_001", "이미 계정에 연결된 사용자입니다."),
+    NICKNAME_ALREADY_IN_USE(HttpStatus.CONFLICT, "USER_002", "이미 사용 중인 닉네임입니다."),
+    EMAIL_ALREADY_IN_USE(HttpStatus.CONFLICT, "USER_003", "이미 사용 중인 이메일입니다."),
+    ALL_USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_004", "등록된 전체 사용자 정보를 찾을 수 없습니다."),
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_005", "사용자를 찾을 수 없습니다."),
+    UNREGISTERED_USER(HttpStatus.NOT_FOUND, "USER_006", "등록되지 않은 사용자입니다."),
 
-    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "AUTH_001", "Authentication is required."),
-    AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "AUTH_002", "Invalid username or password."),
-    ACCESS_DENIED(HttpStatus.FORBIDDEN, "AUTH_003", "Access is denied."),
-    PHONE_VERIFICATION_CODE_INVALID(HttpStatus.BAD_REQUEST, "AUTH_004", "Invalid phone verification code."),
-    PHONE_VERIFICATION_CODE_EXPIRED(HttpStatus.BAD_REQUEST, "AUTH_005", "Phone verification code has expired."),
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "AUTH_001", "인증이 필요합니다."),
+    AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "AUTH_002", "아이디 또는 비밀번호가 올바르지 않습니다."),
+    ACCESS_DENIED(HttpStatus.FORBIDDEN, "AUTH_003", "접근 권한이 없습니다."),
+    PHONE_VERIFICATION_CODE_INVALID(HttpStatus.BAD_REQUEST, "AUTH_004", "인증번호가 올바르지 않습니다."),
+    PHONE_VERIFICATION_CODE_EXPIRED(HttpStatus.BAD_REQUEST, "AUTH_005", "인증번호가 만료되었습니다."),
+    INVALID_VERIFICATION_TOKEN(HttpStatus.BAD_REQUEST, "AUTH_006", "인증 토큰이 유효하지 않습니다."),
+    SMS_SEND_FAILED(HttpStatus.BAD_GATEWAY, "AUTH_007", "인증번호 문자 발송에 실패했습니다."),
+    PHONE_VERIFICATION_ATTEMPT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "AUTH_008", "인증번호 입력 횟수를 초과했습니다. 잠시 후 다시 시도해주세요."),
+    PHONE_VERIFICATION_REQUEST_TOO_FREQUENT(HttpStatus.TOO_MANY_REQUESTS, "AUTH_009", "인증번호 재요청이 너무 빠릅니다. 잠시 후 다시 시도해주세요."),
 
-    VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "COMMON_001", "Request validation failed."),
-    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_999", "Internal server error.");
+    VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "COMMON_001", "요청값 검증에 실패했습니다."),
+    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_999", "서버 내부 오류가 발생했습니다.");
 
     private final HttpStatus status;
     private final String code;

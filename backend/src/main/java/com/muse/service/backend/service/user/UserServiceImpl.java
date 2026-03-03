@@ -1,4 +1,4 @@
-package com.muse.service.backend.service;
+package com.muse.service.backend.service.user;
 
 import com.muse.service.backend.dto.user.UserCreateRequest;
 import com.muse.service.backend.dto.user.UserResponse;
@@ -9,7 +9,9 @@ import com.muse.service.backend.global.exception.CustomException;
 import com.muse.service.backend.global.exception.ErrorCode;
 import com.muse.service.backend.repository.AllUserRepository;
 import com.muse.service.backend.repository.UserRepository;
+
 import java.util.List;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;

@@ -19,7 +19,7 @@ public class CustomUserDetails implements UserDetails {
 
     public CustomUserDetails(User user) {
         this.userId = user.getUserId();
-        this.username = user.getNickname();
+        this.username = user.getEmail();
         this.password = user.getPassword();
         this.role = user.getRole();
         this.status = user.getStatus();

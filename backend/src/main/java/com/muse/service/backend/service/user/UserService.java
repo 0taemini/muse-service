@@ -1,8 +1,9 @@
-package com.muse.service.backend.service;
+package com.muse.service.backend.service.user;
 
 import com.muse.service.backend.dto.user.UserCreateRequest;
 import com.muse.service.backend.dto.user.UserResponse;
 import com.muse.service.backend.dto.user.UserStatusUpdateRequest;
+
 import java.util.List;
 
 public interface UserService {
