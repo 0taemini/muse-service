@@ -171,6 +171,15 @@ function App() {
     }
   };
 
+  const handleGetMyPage = async () => {
+    try {
+      const payload = await requestJson('/api/v1/users/me', { method: 'GET' });
+      applyResult('마이페이지 조회 성공', true, payload);
+    } catch (error) {
+      applyResult('마이페이지 조회 실패', false, normalizeError(error));
+    }
+  };
+
   const handleGetUserById = async () => {
     if (!userQueryId) {
       applyResult('입력 필요', false, { message: 'userId를 입력하세요.' });
@@ -348,6 +357,9 @@ function App() {
           <div className="field-group">
             <button type="button" onClick={handleGetAllUsers}>
               전체 사용자 조회
+            </button>
+            <button type="button" onClick={handleGetMyPage}>
+              마이페이지 조회
             </button>
             <div className="row">
               <input

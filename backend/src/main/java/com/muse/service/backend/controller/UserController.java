@@ -3,17 +3,19 @@ package com.muse.service.backend.controller;
 import com.muse.service.backend.dto.response.ApiResponse;
 import com.muse.service.backend.dto.user.UserResponse;
 import com.muse.service.backend.dto.user.UserStatusUpdateRequest;
+import com.muse.service.backend.global.exception.CustomException;
+import com.muse.service.backend.global.exception.ErrorCode;
+import com.muse.service.backend.security.model.CustomUserDetails;
 import com.muse.service.backend.service.user.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-
 import java.util.List;
-
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,6 +30,21 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final UserService userService;
+
+    @Operation(summary = "마이페이지 조회", description = "현재 로그인한 사용자의 마이페이지 정보를 조회합니다.")
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<UserResponse>> getMyPage(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            HttpServletRequest httpRequest
+    ) {
+        if (userDetails == null) {
+            throw new CustomException(ErrorCode.UNAUTHORIZED);
+        }
+        UserResponse response = userService.getById(userDetails.getUserId());
+        return ResponseEntity.ok(
+                ApiResponse.of(HttpStatus.OK, "마이페이지 조회에 성공했습니다.", response, httpRequest.getRequestURI())
+        );
+    }
 
     @Operation(summary = "사용자 단건 조회", description = "userId로 사용자를 단건 조회합니다.")
     @GetMapping("/{userId}")
@@ -62,6 +79,4 @@ public class UserController {
                 ApiResponse.of(HttpStatus.OK, "사용자 상태 변경에 성공했습니다.", response, httpRequest.getRequestURI())
         );
     }
-
-    
 }
