@@ -104,6 +104,22 @@ public class User {
         this.nickname = nickname;
     }
 
+    public void changeEmail(String email) {
+        this.email = email;
+    }
+
+    public void changePassword(String password) {
+        this.password = password;
+    }
+
+    public void changeRank(UserRank rank) {
+        this.rank = rank;
+    }
+
+    public void changeCohort(Integer cohort) {
+        this.cohort = cohort;
+    }
+
     @PrePersist
     void onCreate() {
         LocalDateTime now = LocalDateTime.now();

@@ -12,6 +12,7 @@ import com.muse.service.backend.entity.AllUser;
 import com.muse.service.backend.global.exception.CustomException;
 import com.muse.service.backend.global.exception.ErrorCode;
 import com.muse.service.backend.repository.AllUserRepository;
+import com.muse.service.backend.repository.UserRepository;
 import com.muse.service.backend.security.jwt.JwtTokenProvider;
 import com.muse.service.backend.security.model.CustomUserDetails;
 import com.muse.service.backend.service.user.UserService;
@@ -28,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthServiceImpl implements AuthService {
 
     private final AllUserRepository allUserRepository;
+    private final UserRepository userRepository;
     private final UserService userService;
     private final PhoneVerificationService phoneVerificationService;
     private final AuthenticationManager authenticationManager;
@@ -55,6 +57,7 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public void requestPhoneVerification(PhoneVerificationRequest request) {
         AllUser allUser = findRegisteredAllUser(request.name(), request.cohort(), request.phone());
+        validateNotLinkedAllUser(allUser);
         phoneVerificationService.issueCode(allUser.getName(), allUser.getCohort(), allUser.getPhone());
     }
 
@@ -62,6 +65,7 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public VerificationTokenResponse verifyPhoneCode(VerifyCodeRequest request) {
         AllUser allUser = findRegisteredAllUser(request.name(), request.cohort(), request.phone());
+        validateNotLinkedAllUser(allUser);
         String token = phoneVerificationService.verifyCodeAndIssueToken(
                 allUser.getName(),
                 allUser.getCohort(),
@@ -74,6 +78,10 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public UserResponse signup(SignupRequest request) {
+        if (!request.password().equals(request.confirmPassword())) {
+            throw new CustomException(ErrorCode.PASSWORD_CONFIRMATION_MISMATCH);
+        }
+
         String verificationToken = request.verificationToken().trim();
         PhoneVerificationService.VerifiedIdentity verifiedIdentity =
                 phoneVerificationService.getVerifiedIdentity(verificationToken);
@@ -106,5 +114,11 @@ public class AuthServiceImpl implements AuthService {
 
     private String normalizePhone(String phone) {
         return phone.replaceAll("[^0-9]", "");
+    }
+
+    private void validateNotLinkedAllUser(AllUser allUser) {
+        if (userRepository.existsByAllUser_AllUserId(allUser.getAllUserId())) {
+            throw new CustomException(ErrorCode.ALL_USER_ALREADY_LINKED);
+        }
     }
 }

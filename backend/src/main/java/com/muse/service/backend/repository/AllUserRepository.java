@@ -9,6 +9,8 @@ import org.springframework.data.repository.query.Param;
 public interface AllUserRepository extends JpaRepository<AllUser, Integer> {
     boolean existsByEmailIgnoreCase(String email);
 
+    boolean existsByEmailIgnoreCaseAndAllUserIdNot(String email, Integer allUserId);
+
     boolean existsByNameAndCohortAndPhone(String name, Integer cohort, String phone);
 
     @Query("""

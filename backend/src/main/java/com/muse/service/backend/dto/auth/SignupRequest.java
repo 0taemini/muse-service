@@ -8,6 +8,7 @@ public record SignupRequest(
         @NotBlank String verificationToken,
         @Email String email,
         @NotBlank @Size(max = 255) String password,
+        @NotBlank @Size(max = 255) String confirmPassword,
         @NotBlank @Size(max = 30) String nickname
 ) {
 }

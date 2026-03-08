@@ -8,7 +8,7 @@ import org.springframework.http.HttpStatus;
 @RequiredArgsConstructor
 public enum ErrorCode {
 
-    ALL_USER_ALREADY_LINKED(HttpStatus.CONFLICT, "USER_001", "이미 계정에 연결된 사용자입니다."),
+    ALL_USER_ALREADY_LINKED(HttpStatus.CONFLICT, "USER_001", "이미 계정과 연결된 사용자입니다."),
     NICKNAME_ALREADY_IN_USE(HttpStatus.CONFLICT, "USER_002", "이미 사용 중인 닉네임입니다."),
     EMAIL_ALREADY_IN_USE(HttpStatus.CONFLICT, "USER_003", "이미 사용 중인 이메일입니다."),
     ALL_USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_004", "등록된 전체 사용자 정보를 찾을 수 없습니다."),
@@ -23,7 +23,8 @@ public enum ErrorCode {
     INVALID_VERIFICATION_TOKEN(HttpStatus.BAD_REQUEST, "AUTH_006", "인증 토큰이 유효하지 않습니다."),
     SMS_SEND_FAILED(HttpStatus.BAD_GATEWAY, "AUTH_007", "인증번호 문자 발송에 실패했습니다."),
     PHONE_VERIFICATION_ATTEMPT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "AUTH_008", "인증번호 입력 횟수를 초과했습니다. 잠시 후 다시 시도해주세요."),
-    PHONE_VERIFICATION_REQUEST_TOO_FREQUENT(HttpStatus.TOO_MANY_REQUESTS, "AUTH_009", "인증번호 재요청이 너무 빠릅니다. 잠시 후 다시 시도해주세요."),
+    PHONE_VERIFICATION_REQUEST_TOO_FREQUENT(HttpStatus.TOO_MANY_REQUESTS, "AUTH_009", "인증번호 요청이 너무 빈번합니다. 잠시 후 다시 시도해주세요."),
+    PASSWORD_CONFIRMATION_MISMATCH(HttpStatus.BAD_REQUEST, "AUTH_010", "비밀번호 확인이 일치하지 않습니다."),
 
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "COMMON_001", "요청값 검증에 실패했습니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_999", "서버 내부 오류가 발생했습니다.");

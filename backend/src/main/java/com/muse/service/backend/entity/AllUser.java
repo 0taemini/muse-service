@@ -82,4 +82,12 @@ public class AllUser {
     public enum AllUserStatus {
         ACTIVE, DELETED
     }
+
+    public void changeEmail(String email) {
+        this.email = email;
+    }
+
+    public void changeCohort(Integer cohort) {
+        this.cohort = cohort;
+    }
 }

@@ -1,6 +1,7 @@
 package com.muse.service.backend.service.user;
 
 import com.muse.service.backend.dto.user.UserCreateRequest;
+import com.muse.service.backend.dto.user.UserProfileUpdateRequest;
 import com.muse.service.backend.dto.user.UserResponse;
 import com.muse.service.backend.dto.user.UserStatusUpdateRequest;
 import com.muse.service.backend.entity.AllUser;
@@ -16,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -77,6 +79,47 @@ public class UserServiceImpl implements UserService {
     public UserResponse updateStatus(Integer userId, UserStatusUpdateRequest request) {
         User user = findUser(userId);
         user.changeStatus(request.status());
+        return UserResponse.from(user);
+    }
+
+    @Override
+    @Transactional
+    public UserResponse updateMyProfile(Integer userId, UserProfileUpdateRequest request) {
+        User user = findUser(userId);
+        AllUser allUser = user.getAllUser();
+
+        if (request.email() != null) {
+            String normalizedEmail = request.email().trim();
+            if (!StringUtils.hasText(normalizedEmail)) {
+                throw new CustomException(ErrorCode.VALIDATION_ERROR);
+            }
+            if (userRepository.existsByEmailIgnoreCaseAndUserIdNot(normalizedEmail, user.getUserId())) {
+                throw new CustomException(ErrorCode.EMAIL_ALREADY_IN_USE);
+            }
+            if (allUserRepository.existsByEmailIgnoreCaseAndAllUserIdNot(normalizedEmail, allUser.getAllUserId())) {
+                throw new CustomException(ErrorCode.EMAIL_ALREADY_IN_USE);
+            }
+            user.changeEmail(normalizedEmail);
+            allUser.changeEmail(normalizedEmail);
+        }
+
+        if (request.rank() != null) {
+            user.changeRank(request.rank());
+        }
+
+        if (request.cohort() != null) {
+            user.changeCohort(request.cohort());
+            allUser.changeCohort(request.cohort());
+        }
+
+        if (request.password() != null) {
+            String rawPassword = request.password().trim();
+            if (!StringUtils.hasText(rawPassword)) {
+                throw new CustomException(ErrorCode.VALIDATION_ERROR);
+            }
+            user.changePassword(passwordEncoder.encode(rawPassword));
+        }
+
         return UserResponse.from(user);
     }
 

@@ -1,6 +1,7 @@
 package com.muse.service.backend.controller;
 
 import com.muse.service.backend.dto.response.ApiResponse;
+import com.muse.service.backend.dto.user.UserProfileUpdateRequest;
 import com.muse.service.backend.dto.user.UserResponse;
 import com.muse.service.backend.dto.user.UserStatusUpdateRequest;
 import com.muse.service.backend.global.exception.CustomException;
@@ -23,7 +24,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "사용자 API", description = "사용자 조회 및 상태 변경 API")
+@Tag(name = "사용자 API", description = "사용자 조회 및 상태/개인정보 수정 API")
 @RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
@@ -43,6 +44,22 @@ public class UserController {
         UserResponse response = userService.getById(userDetails.getUserId());
         return ResponseEntity.ok(
                 ApiResponse.of(HttpStatus.OK, "마이페이지 조회에 성공했습니다.", response, httpRequest.getRequestURI())
+        );
+    }
+
+    @Operation(summary = "개인정보 수정", description = "현재 로그인한 사용자의 이메일, 기수, 랭크, 비밀번호를 수정합니다.")
+    @PatchMapping("/me")
+    public ResponseEntity<ApiResponse<UserResponse>> updateMyProfile(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody UserProfileUpdateRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        if (userDetails == null) {
+            throw new CustomException(ErrorCode.UNAUTHORIZED);
+        }
+        UserResponse response = userService.updateMyProfile(userDetails.getUserId(), request);
+        return ResponseEntity.ok(
+                ApiResponse.of(HttpStatus.OK, "개인정보 수정에 성공했습니다.", response, httpRequest.getRequestURI())
         );
     }
 
@@ -67,7 +84,7 @@ public class UserController {
         );
     }
 
-    @Operation(summary = "사용자 상태 변경", description = "userId로 사용자 상태를 변경합니다.")
+    @Operation(summary = "사용자 상태 변경", description = "userId로 사용자의 상태를 변경합니다.")
     @PatchMapping("/{userId}/status")
     public ResponseEntity<ApiResponse<UserResponse>> updateStatus(
             @PathVariable Integer userId,

@@ -1,6 +1,7 @@
 package com.muse.service.backend.service.user;
 
 import com.muse.service.backend.dto.user.UserCreateRequest;
+import com.muse.service.backend.dto.user.UserProfileUpdateRequest;
 import com.muse.service.backend.dto.user.UserResponse;
 import com.muse.service.backend.dto.user.UserStatusUpdateRequest;
 
@@ -15,4 +16,6 @@ public interface UserService {
     List<UserResponse> getAll();
 
     UserResponse updateStatus(Integer userId, UserStatusUpdateRequest request);
+
+    UserResponse updateMyProfile(Integer userId, UserProfileUpdateRequest request);
 }
