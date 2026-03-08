@@ -8,6 +8,7 @@
 /build/
 */build/
 backend/bin/
+backend/data/
 target/
 out/
 
