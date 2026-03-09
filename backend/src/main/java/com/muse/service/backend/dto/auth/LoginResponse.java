@@ -2,7 +2,9 @@ package com.muse.service.backend.dto.auth;
 
 public record LoginResponse(
         String accessToken,
+        String refreshToken,
         String tokenType,
-        long expiresInMs
+        long accessTokenExpiresInMs,
+        long refreshTokenExpiresInMs
 ) {
 }

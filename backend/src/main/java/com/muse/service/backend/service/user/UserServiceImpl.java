@@ -38,24 +38,32 @@ public class UserServiceImpl implements UserService {
             throw new CustomException(ErrorCode.NICKNAME_ALREADY_IN_USE);
         }
 
-        if (request.email() != null && !request.email().isBlank() && userRepository.existsByEmail(request.email())) {
+        String normalizedEmail = normalizeEmail(request.email());
+        if (userRepository.existsByEmailIgnoreCase(normalizedEmail)) {
             throw new CustomException(ErrorCode.EMAIL_ALREADY_IN_USE);
         }
 
         AllUser allUser = allUserRepository.findById(request.allUserId())
                 .orElseThrow(() -> new CustomException(ErrorCode.ALL_USER_NOT_FOUND));
+        if (allUserRepository.existsByEmailIgnoreCaseAndAllUserIdNot(normalizedEmail, allUser.getAllUserId())) {
+            throw new CustomException(ErrorCode.EMAIL_ALREADY_IN_USE);
+        }
 
         User user = User.builder()
                 .allUser(allUser)
                 .name(allUser.getName())
                 .cohort(allUser.getCohort())
-                .email(request.email())
+                .email(normalizedEmail)
                 .password(passwordEncoder.encode(request.password()))
                 .nickname(request.nickname())
                 .rank(User.UserRank.NEWBIE)
                 .status(User.UserStatus.ACTIVE)
                 .role(User.UserRole.USER)
                 .build();
+
+        if (normalizedEmail != null) {
+            allUser.changeEmail(normalizedEmail);
+        }
 
         return UserResponse.from(userRepository.save(user));
     }
@@ -89,10 +97,7 @@ public class UserServiceImpl implements UserService {
         AllUser allUser = user.getAllUser();
 
         if (request.email() != null) {
-            String normalizedEmail = request.email().trim();
-            if (!StringUtils.hasText(normalizedEmail)) {
-                throw new CustomException(ErrorCode.VALIDATION_ERROR);
-            }
+            String normalizedEmail = normalizeEmail(request.email());
             if (userRepository.existsByEmailIgnoreCaseAndUserIdNot(normalizedEmail, user.getUserId())) {
                 throw new CustomException(ErrorCode.EMAIL_ALREADY_IN_USE);
             }
@@ -101,10 +106,6 @@ public class UserServiceImpl implements UserService {
             }
             user.changeEmail(normalizedEmail);
             allUser.changeEmail(normalizedEmail);
-        }
-
-        if (request.rank() != null) {
-            user.changeRank(request.rank());
         }
 
         if (request.cohort() != null) {
@@ -117,6 +118,10 @@ public class UserServiceImpl implements UserService {
             if (!StringUtils.hasText(rawPassword)) {
                 throw new CustomException(ErrorCode.VALIDATION_ERROR);
             }
+            if (!StringUtils.hasText(request.currentPassword())
+                    || !passwordEncoder.matches(request.currentPassword().trim(), user.getPassword())) {
+                throw new CustomException(ErrorCode.AUTHENTICATION_FAILED);
+            }
             user.changePassword(passwordEncoder.encode(rawPassword));
         }
 
@@ -126,5 +131,12 @@ public class UserServiceImpl implements UserService {
     private User findUser(Integer userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private String normalizeEmail(String email) {
+        if (!StringUtils.hasText(email)) {
+            throw new CustomException(ErrorCode.VALIDATION_ERROR);
+        }
+        return email.trim().toLowerCase();
     }
 }

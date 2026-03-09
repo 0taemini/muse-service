@@ -1,6 +1,7 @@
 package com.muse.service.backend.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -76,9 +77,25 @@ class AuthControllerExceptionTest {
                 .andExpect(jsonPath("$.code").value("AUTH_007"));
     }
 
+    @Test
+    void login_whenAttemptExceeded_returns429() throws Exception {
+        doThrow(new CustomException(ErrorCode.LOGIN_ATTEMPT_EXCEEDED))
+                .when(authService)
+                .login(any(), anyString());
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LoginBody("test@muse.com", "password123"))))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("AUTH_012"));
+    }
+
     private record PhoneRequest(String name, Integer cohort, String phone) {
     }
 
     private record VerifyRequest(String name, Integer cohort, String phone, String code) {
+    }
+
+    private record LoginBody(String email, String password) {
     }
 }

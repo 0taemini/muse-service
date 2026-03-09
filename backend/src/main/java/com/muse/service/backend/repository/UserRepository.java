@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface UserRepository extends JpaRepository<User, Integer> {
     boolean existsByNickname(String nickname);
 
-    boolean existsByEmail(String email);
+    boolean existsByEmailIgnoreCase(String email);
 
     boolean existsByEmailIgnoreCaseAndUserIdNot(String email, Integer userId);
 
@@ -15,5 +15,7 @@ public interface UserRepository extends JpaRepository<User, Integer> {
 
     Optional<User> findByNickname(String nickname);
 
-    Optional<User> findByEmail(String email);
+    Optional<User> findByEmailIgnoreCase(String email);
+
+    Optional<User> findByAllUser_AllUserId(Integer allUserId);
 }

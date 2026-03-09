@@ -45,14 +45,21 @@ public class RedisPhoneVerificationService implements PhoneVerificationService {
         String code = String.valueOf(ThreadLocalRandom.current().nextInt(100000, 1_000_000));
         String codeKey = VERIFICATION_CODE_PREFIX + identityKey;
 
-        redisTemplate.opsForValue().set(codeKey, code, VERIFICATION_CODE_TTL);
-        redisTemplate.opsForValue().set(cooldownKey, "1", REQUEST_COOLDOWN_TTL);
 
-        // 실제 인증 문자 보내는 코드
         solapiSmsService.sendVerificationCode(phone, code);
 
+        try {
+            redisTemplate.opsForValue().set(codeKey, code, VERIFICATION_CODE_TTL);
+            redisTemplate.opsForValue().set(cooldownKey, "1", REQUEST_COOLDOWN_TTL);
+        } catch (Exception e) {
+            redisTemplate.delete(codeKey);
+            redisTemplate.delete(cooldownKey);
+            log.error("redis에 인증번호 저장 실패: {}", e.getMessage(), e);
+            throw new CustomException(ErrorCode.PHONE_VERIFICATION_CODE_NOT_SET);
+        }
+
         // 민감 정보라 운영환경에서는 지울 예정
-        log.info("[PHONE-VERIFY] phone={}, cohort={}, code={}", normalizePhone(phone), cohort, code);
+        log.info("[PHONE-VERIFY] phone={}, cohort={}, smsSent=true", normalizePhone(phone), cohort);
     }
 
     @Override
@@ -122,6 +129,14 @@ public class RedisPhoneVerificationService implements PhoneVerificationService {
         redisTemplate.delete(tokenKey);
     }
 
+    /**
+     * redis에서 자정할 키값을 만들어줄 method
+     *
+     * @param name
+     * @param cohort
+     * @param phone
+     * @return
+     */
     private String verificationKey(String name, Integer cohort, String phone) {
         return name + "|" + cohort + "|" + normalizePhone(phone);
     }

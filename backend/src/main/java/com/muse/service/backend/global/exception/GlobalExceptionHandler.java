@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -45,6 +46,22 @@ public class GlobalExceptionHandler {
                         .message(errorCode.getMessage())
                         .path(request.getRequestURI())
                         .validationErrors(validationErrors)
+                        .build());
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolationException(
+            DataIntegrityViolationException exception,
+            HttpServletRequest request
+    ) {
+        ErrorCode errorCode = ErrorCode.DATA_CONFLICT;
+        return ResponseEntity.status(errorCode.getStatus())
+                .body(ErrorResponse.builder()
+                        .timestamp(LocalDateTime.now())
+                        .status(errorCode.getStatus().value())
+                        .code(errorCode.getCode())
+                        .message(errorCode.getMessage())
+                        .path(request.getRequestURI())
                         .build());
     }
 
