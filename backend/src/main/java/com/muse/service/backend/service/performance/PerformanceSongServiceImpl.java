@@ -14,12 +14,6 @@ import com.muse.service.backend.entity.PerformanceSongSession;
 import com.muse.service.backend.entity.User;
 import com.muse.service.backend.global.exception.CustomException;
 import com.muse.service.backend.global.exception.ErrorCode;
-import com.muse.service.backend.global.exception.PerformanceNotFoundException;
-import com.muse.service.backend.global.exception.PerformanceSessionColumnNotFoundException;
-import com.muse.service.backend.global.exception.PerformanceSongAccessDeniedException;
-import com.muse.service.backend.global.exception.PerformanceSongAlreadyDeletedException;
-import com.muse.service.backend.global.exception.PerformanceSongLockedException;
-import com.muse.service.backend.global.exception.PerformanceSongNotFoundException;
 import com.muse.service.backend.repository.ChatRoomRepository;
 import com.muse.service.backend.repository.PerformanceRepository;
 import com.muse.service.backend.repository.PerformanceSessionColumnRepository;
@@ -208,19 +202,19 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
 
     private Performance findPerformance(Integer performanceId) {
         return performanceRepository.findById(performanceId)
-                .orElseThrow(PerformanceNotFoundException::new);
+                .orElseThrow(() -> new CustomException(ErrorCode.PERFORMANCE_NOT_FOUND));
     }
 
     private PerformanceSong findPerformanceSong(Integer performanceId, Integer performanceSongId) {
         findPerformance(performanceId);
         return performanceSongRepository.findByPerformanceSongIdAndPerformance_PerformanceId(performanceSongId, performanceId)
-                .orElseThrow(PerformanceSongNotFoundException::new);
+                .orElseThrow(() -> new CustomException(ErrorCode.PERFORMANCE_SONG_NOT_FOUND));
     }
 
     private PerformanceSong findActivePerformanceSong(Integer performanceId, Integer performanceSongId) {
         PerformanceSong performanceSong = findPerformanceSong(performanceId, performanceSongId);
         if (Boolean.TRUE.equals(performanceSong.getIsDeleted())) {
-            throw new PerformanceSongAlreadyDeletedException();
+            throw new CustomException(ErrorCode.PERFORMANCE_SONG_ALREADY_DELETED);
         }
         return performanceSong;
     }
@@ -231,7 +225,7 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
                         performanceSessionColumnId,
                         performanceId
                 )
-                .orElseThrow(PerformanceSessionColumnNotFoundException::new);
+                .orElseThrow(() -> new CustomException(ErrorCode.PERFORMANCE_SESSION_COLUMN_NOT_FOUND));
     }
 
     private User findUser(Integer userId) {
@@ -241,13 +235,13 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
 
     private void ensureAuthor(PerformanceSong performanceSong, Integer userId) {
         if (performanceSong.getCreatedByUser() == null || !performanceSong.getCreatedByUser().getUserId().equals(userId)) {
-            throw new PerformanceSongAccessDeniedException();
+            throw new CustomException(ErrorCode.PERFORMANCE_SONG_ACCESS_DENIED);
         }
     }
 
     private void ensureNoChatRoom(Integer performanceSongId) {
         if (chatRoomRepository.existsByPerformanceSong_PerformanceSongId(performanceSongId)) {
-            throw new PerformanceSongLockedException();
+            throw new CustomException(ErrorCode.PERFORMANCE_SONG_LOCKED);
         }
     }
 

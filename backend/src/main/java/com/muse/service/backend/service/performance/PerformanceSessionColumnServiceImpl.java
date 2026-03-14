@@ -10,10 +10,6 @@ import com.muse.service.backend.entity.PerformanceSongSession;
 import com.muse.service.backend.entity.SessionType;
 import com.muse.service.backend.global.exception.CustomException;
 import com.muse.service.backend.global.exception.ErrorCode;
-import com.muse.service.backend.global.exception.PerformanceNotFoundException;
-import com.muse.service.backend.global.exception.PerformanceSessionColumnDuplicateException;
-import com.muse.service.backend.global.exception.PerformanceSessionColumnLockedException;
-import com.muse.service.backend.global.exception.PerformanceSessionColumnNotFoundException;
 import com.muse.service.backend.repository.ChatRoomRepository;
 import com.muse.service.backend.repository.PerformanceRepository;
 import com.muse.service.backend.repository.PerformanceSessionColumnRepository;
@@ -101,7 +97,7 @@ public class PerformanceSessionColumnServiceImpl implements PerformanceSessionCo
 
         PerformanceSessionColumn column = performanceSessionColumnRepository
                 .findByPerformanceSessionColumnIdAndPerformance_PerformanceId(performanceSessionColumnId, performanceId)
-                .orElseThrow(PerformanceSessionColumnNotFoundException::new);
+                .orElseThrow(() -> new CustomException(ErrorCode.PERFORMANCE_SESSION_COLUMN_NOT_FOUND));
 
         validateDuplicateName(performanceId, request.sessionName(), performanceSessionColumnId);
 
@@ -192,7 +188,7 @@ public class PerformanceSessionColumnServiceImpl implements PerformanceSessionCo
 
     private Performance findPerformance(Integer performanceId) {
         return performanceRepository.findById(performanceId)
-                .orElseThrow(PerformanceNotFoundException::new);
+                .orElseThrow(() -> new CustomException(ErrorCode.PERFORMANCE_NOT_FOUND));
     }
 
     private SessionType findBaseSessionType(Integer sessionTypeId) {
@@ -200,7 +196,7 @@ public class PerformanceSessionColumnServiceImpl implements PerformanceSessionCo
             return null;
         }
         return sessionTypeRepository.findById(sessionTypeId)
-                .orElseThrow(PerformanceSessionColumnNotFoundException::new);
+                .orElseThrow(() -> new CustomException(ErrorCode.PERFORMANCE_SESSION_COLUMN_NOT_FOUND));
     }
 
     private void findUser(Integer userId) {
@@ -210,7 +206,7 @@ public class PerformanceSessionColumnServiceImpl implements PerformanceSessionCo
 
     private void ensurePerformanceUnlocked(Integer performanceId) {
         if (chatRoomRepository.existsByPerformanceSong_Performance_PerformanceIdAndPerformanceSong_IsDeletedFalse(performanceId)) {
-            throw new PerformanceSessionColumnLockedException();
+            throw new CustomException(ErrorCode.PERFORMANCE_SESSION_COLUMN_LOCKED);
         }
     }
 
@@ -228,7 +224,7 @@ public class PerformanceSessionColumnServiceImpl implements PerformanceSessionCo
                                 excludeColumnId
                         );
         if (duplicated) {
-            throw new PerformanceSessionColumnDuplicateException();
+            throw new CustomException(ErrorCode.PERFORMANCE_SESSION_COLUMN_DUPLICATE);
         }
     }
 

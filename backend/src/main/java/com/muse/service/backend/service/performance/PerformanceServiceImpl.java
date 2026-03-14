@@ -5,7 +5,8 @@ import com.muse.service.backend.dto.performance.PerformanceDetailResponse;
 import com.muse.service.backend.dto.performance.PerformanceSongResponse;
 import com.muse.service.backend.dto.performance.PerformanceSummaryResponse;
 import com.muse.service.backend.entity.Performance;
-import com.muse.service.backend.global.exception.PerformanceNotFoundException;
+import com.muse.service.backend.global.exception.CustomException;
+import com.muse.service.backend.global.exception.ErrorCode;
 import com.muse.service.backend.repository.PerformanceRepository;
 import com.muse.service.backend.repository.PerformanceSongRepository;
 import java.util.Collections;
@@ -64,7 +65,7 @@ public class PerformanceServiceImpl implements PerformanceService {
     @Transactional(readOnly = true)
     public PerformanceDetailResponse getById(Integer performanceId) {
         Performance performance = performanceRepository.findById(performanceId)
-                .orElseThrow(PerformanceNotFoundException::new);
+                .orElseThrow(() -> new CustomException(ErrorCode.PERFORMANCE_NOT_FOUND));
 
         List<PerformanceSongResponse> songs = performanceSongRepository.findAllActiveByPerformanceIdOrderByOrderNoAsc(
                         performanceId

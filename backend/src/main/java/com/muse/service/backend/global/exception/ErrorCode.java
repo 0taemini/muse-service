@@ -28,6 +28,16 @@ public enum ErrorCode {
     PHONE_VERIFICATION_CODE_NOT_SET(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH_011", "인증번호 저장에 실패했습니다."),
     LOGIN_ATTEMPT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "AUTH_012", "로그인 시도 횟수를 초과했습니다. 잠시 후 다시 시도해주세요."),
 
+    PERFORMANCE_NOT_FOUND(HttpStatus.NOT_FOUND, "PERFORMANCE_001", "공연을 찾을 수 없습니다."),
+    PERFORMANCE_SONG_NOT_FOUND(HttpStatus.NOT_FOUND, "PERFORMANCE_002", "공연 후보곡을 찾을 수 없습니다."),
+    PERFORMANCE_SONG_ACCESS_DENIED(HttpStatus.FORBIDDEN, "PERFORMANCE_003", "후보곡 작성자만 수정할 수 있습니다."),
+    PERFORMANCE_SONG_LOCKED(HttpStatus.CONFLICT, "PERFORMANCE_004", "채팅방이 생성된 뒤에는 세션 구조만 수정할 수 있습니다."),
+    PERFORMANCE_SONG_ALREADY_DELETED(HttpStatus.CONFLICT, "PERFORMANCE_005", "이미 삭제된 공연 후보곡입니다."),
+    PERFORMANCE_SONG_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "PERFORMANCE_006", "공연 곡 세션을 찾을 수 없습니다."),
+    PERFORMANCE_SESSION_COLUMN_NOT_FOUND(HttpStatus.NOT_FOUND, "PERFORMANCE_007", "공연 공통 세션 컬럼을 찾을 수 없습니다."),
+    PERFORMANCE_SESSION_COLUMN_LOCKED(HttpStatus.CONFLICT, "PERFORMANCE_008", "이미 채팅방이 생성된 공연이므로 공연 공통 세션 컬럼을 변경할 수 없습니다."),
+    PERFORMANCE_SESSION_COLUMN_DUPLICATE(HttpStatus.CONFLICT, "PERFORMANCE_009", "같은 이름의 세션 컬럼이 이미 존재합니다."),
+
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "COMMON_001", "요청값 검증에 실패했습니다."),
     DATA_CONFLICT(HttpStatus.CONFLICT, "COMMON_002", "중복되었거나 무결성 제약을 위반한 요청입니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_999", "서버 내부 오류가 발생했습니다.");

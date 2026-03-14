@@ -19,7 +19,8 @@ import com.muse.service.backend.entity.PerformanceSong;
 import com.muse.service.backend.entity.PerformanceSongSession;
 import com.muse.service.backend.entity.SessionType;
 import com.muse.service.backend.entity.User;
-import com.muse.service.backend.global.exception.PerformanceSongLockedException;
+import com.muse.service.backend.global.exception.CustomException;
+import com.muse.service.backend.global.exception.ErrorCode;
 import com.muse.service.backend.repository.ChatRoomRepository;
 import com.muse.service.backend.repository.PerformanceRepository;
 import com.muse.service.backend.repository.PerformanceSessionColumnRepository;
@@ -125,7 +126,10 @@ class PerformanceSongServiceImplTest {
                 100,
                 3,
                 new PerformanceSongUpdateRequest("New Song", "New Singer", true, 2)
-        )).isInstanceOf(PerformanceSongLockedException.class);
+        )).isInstanceOfSatisfying(CustomException.class, exception -> {
+            assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PERFORMANCE_SONG_LOCKED);
+            assertThat(exception).hasMessage("채팅방이 생성된 뒤에는 세션 구조만 수정할 수 있습니다.");
+        });
     }
 
     @Test

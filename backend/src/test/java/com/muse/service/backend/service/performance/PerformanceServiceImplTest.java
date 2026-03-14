@@ -9,7 +9,8 @@ import com.muse.service.backend.dto.performance.PerformanceDetailResponse;
 import com.muse.service.backend.dto.performance.PerformanceSummaryResponse;
 import com.muse.service.backend.entity.Performance;
 import com.muse.service.backend.entity.PerformanceSong;
-import com.muse.service.backend.global.exception.PerformanceNotFoundException;
+import com.muse.service.backend.global.exception.CustomException;
+import com.muse.service.backend.global.exception.ErrorCode;
 import com.muse.service.backend.repository.PerformanceRepository;
 import com.muse.service.backend.repository.PerformanceSongRepository;
 import java.time.LocalDateTime;
@@ -90,12 +91,14 @@ class PerformanceServiceImplTest {
     }
 
     @Test
-    void getById_whenPerformanceMissing_throwsPerformanceNotFoundException() {
+    void getById_whenPerformanceMissing_throwsCustomException() {
         when(performanceRepository.findById(999)).thenReturn(java.util.Optional.empty());
 
         assertThatThrownBy(() -> performanceService.getById(999))
-                .isInstanceOf(PerformanceNotFoundException.class)
-                .hasMessage("공연을 찾을 수 없습니다.");
+                .isInstanceOfSatisfying(CustomException.class, exception -> {
+                    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PERFORMANCE_NOT_FOUND);
+                    assertThat(exception).hasMessage("공연을 찾을 수 없습니다.");
+                });
     }
 
     private Performance performance(Integer id, String title, LocalDateTime createdAt) {
