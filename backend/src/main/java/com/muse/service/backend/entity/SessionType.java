@@ -32,11 +32,19 @@ public class SessionType {
     @Column(name = "sort_order")
     private Integer sortOrder;
 
+    @Column(name = "is_default", nullable = false)
+    private Boolean isDefault;
+
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive;
+
     @Builder
-    public SessionType(String code, String displayName, Integer sortOrder) {
+    public SessionType(String code, String displayName, Integer sortOrder, Boolean isDefault, Boolean isActive) {
         this.code = code;
         this.displayName = displayName;
         this.sortOrder = sortOrder;
+        this.isDefault = isDefault;
+        this.isActive = isActive;
     }
 
     @PrePersist
@@ -44,5 +52,18 @@ public class SessionType {
         if (this.sortOrder == null) {
             this.sortOrder = 0;
         }
+        if (this.isDefault == null) {
+            this.isDefault = Boolean.FALSE;
+        }
+        if (this.isActive == null) {
+            this.isActive = Boolean.TRUE;
+        }
+    }
+
+    public void syncMetadata(String displayName, Integer sortOrder, Boolean isDefault, Boolean isActive) {
+        this.displayName = displayName;
+        this.sortOrder = sortOrder;
+        this.isDefault = isDefault;
+        this.isActive = isActive;
     }
 }

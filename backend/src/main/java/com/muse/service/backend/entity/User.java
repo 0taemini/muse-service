@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
@@ -51,6 +52,10 @@ public class User {
     @Column(nullable = false, unique = true, length = 30)
     private String nickname;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "representative_session_type_id")
+    private SessionType representativeSessionType;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private UserRank rank;
@@ -77,6 +82,7 @@ public class User {
             String email,
             String password,
             String nickname,
+            SessionType representativeSessionType,
             UserRank rank,
             UserStatus status,
             UserRole role
@@ -87,6 +93,7 @@ public class User {
         this.email = email;
         this.password = password;
         this.nickname = nickname;
+        this.representativeSessionType = representativeSessionType;
         this.rank = rank;
         this.status = status;
         this.role = role;
@@ -102,6 +109,10 @@ public class User {
 
     public void changeNickname(String nickname) {
         this.nickname = nickname;
+    }
+
+    public void changeRepresentativeSessionType(SessionType representativeSessionType) {
+        this.representativeSessionType = representativeSessionType;
     }
 
     public void changeEmail(String email) {

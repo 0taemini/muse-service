@@ -16,5 +16,6 @@ const unwrap = async <T>(promise: Promise<{ data: ApiResponse<T> }>) => {
 
 export const userApi = {
   getMe: () => unwrap<User>(http.get('/api/v1/users/me')),
+  getAll: () => unwrap<User[]>(http.get('/api/v1/users')),
   updateMe: (payload: UpdateProfilePayload) => unwrap<User>(http.patch('/api/v1/users/me', payload)),
 };

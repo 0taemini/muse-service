@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Gaegu:wght@400;700&family=Shrikhand&display=swap");
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,13 +6,11 @@
   * { @apply box-border; }
 
   html {
-    font-family: "Gowun Dodum", sans-serif;
-    color: #1f1e2f;
+    font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", "Segoe UI", sans-serif;
+    color: #111827;
     background:
-      radial-gradient(circle at 14% 12%, rgba(201, 178, 255, 0.42), transparent 24%),
-      radial-gradient(circle at 84% 14%, rgba(255, 196, 231, 0.35), transparent 26%),
-      radial-gradient(circle at 82% 82%, rgba(179, 225, 255, 0.3), transparent 22%),
-      linear-gradient(180deg, #fdfbff 0%, #f7f2ff 45%, #f4efff 100%);
+      radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 22%),
+      linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
   }
 
   body { @apply m-0 min-h-screen text-slate-900 antialiased; }
@@ -28,23 +24,22 @@
   }
 
   .page-card {
-    @apply rounded-[30px] border border-white/80 bg-white/82 p-5 backdrop-blur md:p-8;
-    box-shadow: 0 26px 80px rgba(75, 49, 140, 0.1);
+    @apply rounded-2xl border border-slate-200 bg-white p-5 md:p-8;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
   }
 
   .section-title {
     @apply text-3xl font-bold tracking-tight text-slate-950 md:text-5xl;
-    font-family: "Gaegu", "Gowun Dodum", sans-serif;
   }
 
   .section-copy { @apply text-sm leading-7 text-slate-600 md:text-base; }
 
   .sticker {
-    @apply inline-flex items-center rounded-full border border-white/90 bg-white/84 px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm;
+    @apply inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm;
   }
 
   .soft-panel {
-    @apply rounded-[28px] border border-white/90 bg-white/84 backdrop-blur;
-    box-shadow: 0 20px 60px rgba(78, 49, 148, 0.12);
+    @apply rounded-2xl border border-slate-200 bg-white;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
   }
 }
