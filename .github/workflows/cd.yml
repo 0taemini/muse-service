@@ -38,7 +38,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/muse-backend
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest
             type=sha,format=long
 
       - name: Build And Push Backend Image
@@ -73,7 +73,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/muse-frontend
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest
             type=sha,format=long
 
       - name: Build And Push Frontend Image
