@@ -10,6 +10,9 @@ import { Button } from '@shared/components/ui/button';
 import { Input } from '@shared/components/ui/input';
 import { FormField } from '@shared/components/ui/form-field';
 import { toApiMessage } from '@features/auth/api/auth-api';
+import { InlineNotice } from '@shared/components/ui/inline-notice';
+import { PageHeader } from '@shared/components/ui/page-header';
+import { StatePanel } from '@shared/components/ui/state-panel';
 
 const formSchema = profileSchemaFixed;
 type ProfileFormValues = z.infer<typeof formSchema>;
@@ -69,86 +72,114 @@ export function MyPageV2() {
     updateMutation.mutate(payload);
   });
 
+  const me = data?.data ?? null;
+
   return (
     <section className="space-y-6">
-      <Card className="px-6 py-8 md:px-8">
-        <div className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">My Page</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 md:text-4xl">마이페이지</h1>
-          <p className="max-w-3xl text-sm leading-7 text-slate-600 md:text-base">
-            계정 정보와 기본 설정을 관리하는 화면입니다. 이후 라운드별 피드백 요약과 개인 기록도 이곳에 연결됩니다.
-          </p>
-        </div>
-      </Card>
+      <PageHeader
+        eyebrow="My Page"
+        title="내 계정과 기록을 한눈에 확인하세요"
+        description="계정 기본 정보와 비밀번호 변경 흐름을 같은 화면에서 관리하고, 이후 피드백 요약 영역이 자연스럽게 붙을 수 있도록 구조를 정리했습니다."
+      />
 
-      <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
-        <Card className="space-y-5 border-slate-900 bg-slate-900 text-white">
+      <div className="grid gap-6 xl:grid-cols-[0.96fr_1.04fr]">
+        <Card className="bg-[#14323f] text-white">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-slate-300">Profile Snapshot</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-300">Profile Snapshot</p>
               <h2 className="mt-2 text-2xl font-semibold">기본 정보</h2>
             </div>
-            <div className="rounded-full bg-white/10 px-3 py-2 text-xs text-slate-200">{data?.data?.role || 'USER'}</div>
+            <div className="rounded-full bg-white/10 px-3 py-2 text-xs text-slate-200">
+              {me?.role || 'USER'}
+            </div>
           </div>
-          {isLoading ? <p className="text-sm text-slate-300">사용자 정보를 불러오는 중입니다.</p> : null}
-          {data?.data ? (
-            <dl className="grid gap-4 text-sm text-slate-200">
-              <div>
-                <dt className="text-slate-400">이름</dt>
-                <dd className="mt-1 text-base text-white">{data.data.name}</dd>
+
+          {isLoading ? (
+            <div className="mt-5 grid gap-3">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div key={index} className="h-16 rounded-[20px] bg-white/10" />
+              ))}
+            </div>
+          ) : null}
+
+          {me ? (
+            <dl className="mt-5 grid gap-3">
+              <div className="rounded-[22px] bg-white/8 p-4 ring-1 ring-white/8">
+                <dt className="text-sm text-slate-300">이름</dt>
+                <dd className="mt-1 text-lg font-semibold text-white">{me.name}</dd>
               </div>
-              <div>
-                <dt className="text-slate-400">기수</dt>
-                <dd className="mt-1 text-base text-white">{data.data.cohort}</dd>
+              <div className="rounded-[22px] bg-white/8 p-4 ring-1 ring-white/8">
+                <dt className="text-sm text-slate-300">기수</dt>
+                <dd className="mt-1 text-lg font-semibold text-white">{me.cohort}</dd>
               </div>
-              <div>
-                <dt className="text-slate-400">이메일</dt>
-                <dd className="mt-1 break-all text-base text-white">{data.data.email}</dd>
+              <div className="rounded-[22px] bg-white/8 p-4 ring-1 ring-white/8">
+                <dt className="text-sm text-slate-300">이메일</dt>
+                <dd className="mt-1 break-all text-lg font-semibold text-white">{me.email}</dd>
               </div>
-              <div>
-                <dt className="text-slate-400">닉네임</dt>
-                <dd className="mt-1 text-base text-white">{data.data.nickname}</dd>
+              <div className="rounded-[22px] bg-white/8 p-4 ring-1 ring-white/8">
+                <dt className="text-sm text-slate-300">닉네임</dt>
+                <dd className="mt-1 text-lg font-semibold text-white">{me.nickname}</dd>
               </div>
-              <div>
-                <dt className="text-slate-400">등급</dt>
-                <dd className="mt-1 text-base text-white">{data.data.rank}</dd>
+              <div className="rounded-[22px] bg-white/8 p-4 ring-1 ring-white/8">
+                <dt className="text-sm text-slate-300">등급</dt>
+                <dd className="mt-1 text-lg font-semibold text-white">{me.rank}</dd>
               </div>
             </dl>
           ) : null}
-          <div className="grid gap-3 rounded-xl bg-white/5 p-4 text-sm text-slate-300">
+
+          <div className="mt-5 grid gap-3 rounded-[24px] bg-white/6 p-4 text-sm text-slate-300">
             <div>공연 참여 이력: 준비 중</div>
-            <div>합주 피드백 요약: 준비 중</div>
+            <div>라운드 피드백 요약: 준비 중</div>
             <div>채팅 라운드 히스토리: 준비 중</div>
           </div>
         </Card>
 
         <Card className="space-y-5">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Profile Edit</p>
+            <p className="section-kicker">Profile Edit</p>
             <h2 className="mt-2 text-2xl font-semibold text-slate-900">개인정보 수정</h2>
-            <p className="mt-1 text-sm text-slate-500">비밀번호를 변경할 때는 현재 비밀번호를 함께 입력해 주세요.</p>
+            <p className="mt-2 text-sm leading-7 text-slate-600">
+              비밀번호를 변경할 때는 현재 비밀번호를 함께 입력해야 합니다. 자주 바꾸는 항목이 위쪽에 오도록 배치했습니다.
+            </p>
           </div>
+
+          {!me && !isLoading ? (
+            <StatePanel
+              title="계정 정보를 불러오지 못했습니다"
+              description="잠시 후 다시 시도하거나 새로고침한 뒤 다시 접근해 주세요."
+              tone="danger"
+            />
+          ) : null}
+
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="grid gap-4 md:grid-cols-2">
               <FormField label="이메일" error={form.formState.errors.email?.message}>
-                <Input type="email" {...form.register('email')} />
+                <Input type="email" placeholder="muse@example.com" {...form.register('email')} />
               </FormField>
               <FormField label="기수" error={form.formState.errors.cohort?.message?.toString()}>
-                <Input type="number" {...form.register('cohort', { valueAsNumber: true })} />
+                <Input type="number" placeholder="예: 12" {...form.register('cohort', { valueAsNumber: true })} />
               </FormField>
-              <FormField label="현재 비밀번호" error={form.formState.errors.currentPassword?.message}>
-                <Input type="password" {...form.register('currentPassword')} />
+              <FormField
+                label="현재 비밀번호"
+                error={form.formState.errors.currentPassword?.message}
+                hint="새 비밀번호를 설정할 때만 입력하면 됩니다."
+              >
+                <Input type="password" placeholder="현재 비밀번호 입력" {...form.register('currentPassword')} />
               </FormField>
               <FormField label="새 비밀번호" error={form.formState.errors.password?.message}>
-                <Input type="password" {...form.register('password')} />
+                <Input type="password" placeholder="새 비밀번호 입력" {...form.register('password')} />
               </FormField>
             </div>
+
             {serverMessage ? (
-              <p className="rounded-xl bg-slate-100 px-4 py-3 text-sm font-medium text-slate-700">{serverMessage}</p>
+              <InlineNotice tone={updateMutation.isError ? 'error' : 'success'}>{serverMessage}</InlineNotice>
             ) : null}
-            <Button type="submit" disabled={updateMutation.isPending}>
-              {updateMutation.isPending ? '저장 중...' : '변경사항 저장'}
-            </Button>
+
+            <div className="flex justify-end">
+              <Button type="submit" disabled={updateMutation.isPending}>
+                {updateMutation.isPending ? '변경 사항 저장 중...' : '변경 사항 저장'}
+              </Button>
+            </div>
           </form>
         </Card>
       </div>
