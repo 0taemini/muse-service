@@ -11,6 +11,7 @@ backend/bin/
 backend/data/
 target/
 out/
+/.gradle-user-home*/
 
 # Logs
 *.log
