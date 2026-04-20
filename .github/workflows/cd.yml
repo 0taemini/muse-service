@@ -110,6 +110,7 @@ jobs:
           mkdir -p .deploy
           cp deploy/docker-compose.prod.yml .deploy/docker-compose.prod.yml
           cp deploy/nginx.conf .deploy/nginx.conf
+          cp deploy/nginx.https.conf .deploy/nginx.https.conf
 
       - name: Create Remote App Directory
         uses: appleboy/ssh-action@v1.2.0
@@ -128,7 +129,7 @@ jobs:
           username: ${{ secrets.ORACLE_USER }}
           key: ${{ secrets.ORACLE_SSH_KEY }}
           port: ${{ secrets.ORACLE_PORT }}
-          source: ".deploy/docker-compose.prod.yml,.deploy/nginx.conf"
+          source: ".deploy/docker-compose.prod.yml,.deploy/nginx.conf,.deploy/nginx.https.conf"
           target: ${{ secrets.ORACLE_APP_DIR }}
           strip_components: 1
 
