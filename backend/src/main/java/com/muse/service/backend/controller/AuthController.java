@@ -13,6 +13,7 @@ import com.muse.service.backend.dto.response.ApiResponse;
 import com.muse.service.backend.dto.user.UserResponse;
 import com.muse.service.backend.service.auth.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "인증 API", description = "로그인, 회원가입, 아이디/비밀번호 찾기 관련 API")
+@SecurityRequirements
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor

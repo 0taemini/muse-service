@@ -37,13 +37,13 @@ public class FeedbackSummary {
     @JoinColumn(name = "chat_round_id", nullable = false)
     private ChatRound chatRound;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "target_user_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "target_user_id")
     private User targetUser;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "session_type_id", nullable = false)
-    private SessionType sessionType;
+    @JoinColumn(name = "performance_song_session_id", nullable = false)
+    private PerformanceSongSession performanceSongSession;
 
     @Column(name = "summary_text", nullable = false, columnDefinition = "TEXT")
     private String summaryText;
@@ -59,13 +59,13 @@ public class FeedbackSummary {
     public FeedbackSummary(
             ChatRound chatRound,
             User targetUser,
-            SessionType sessionType,
+            PerformanceSongSession performanceSongSession,
             String summaryText,
             User createdBy
     ) {
         this.chatRound = chatRound;
         this.targetUser = targetUser;
-        this.sessionType = sessionType;
+        this.performanceSongSession = performanceSongSession;
         this.summaryText = summaryText;
         this.createdBy = createdBy;
     }

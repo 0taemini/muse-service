@@ -43,8 +43,15 @@ public class Message {
     private User senderUser;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "target_session_type_id", nullable = false)
-    private SessionType targetSessionType;
+    @JoinColumn(name = "target_performance_song_session_id", nullable = false)
+    private PerformanceSongSession targetPerformanceSongSession;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sender_representative_session_type_id")
+    private SessionType senderRepresentativeSessionType;
+
+    @Column(name = "sender_representative_session_name", length = 50)
+    private String senderRepresentativeSessionName;
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
@@ -56,12 +63,16 @@ public class Message {
     public Message(
             ChatRound chatRound,
             User senderUser,
-            SessionType targetSessionType,
+            PerformanceSongSession targetPerformanceSongSession,
+            SessionType senderRepresentativeSessionType,
+            String senderRepresentativeSessionName,
             String content
     ) {
         this.chatRound = chatRound;
         this.senderUser = senderUser;
-        this.targetSessionType = targetSessionType;
+        this.targetPerformanceSongSession = targetPerformanceSongSession;
+        this.senderRepresentativeSessionType = senderRepresentativeSessionType;
+        this.senderRepresentativeSessionName = senderRepresentativeSessionName;
         this.content = content;
     }
 

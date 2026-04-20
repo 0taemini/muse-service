@@ -12,7 +12,7 @@ interface FormFieldProps {
 export function FormField({ label, hint, error, children, className }: FormFieldProps) {
   return (
     <label className={cn('flex flex-col gap-2', className)}>
-      <span className="text-sm font-medium text-slate-700">{label}</span>
+      <span className="field-label">{label}</span>
       {children}
       {error ? <span className="text-xs font-medium text-rose-600">{error}</span> : null}
       {!error && hint ? <span className="text-xs text-slate-500">{hint}</span> : null}
