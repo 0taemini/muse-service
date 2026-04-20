@@ -6,6 +6,7 @@
 - `CD`: `main` 브랜치 푸시 또는 수동 실행 시 백엔드/프론트 Docker 이미지를 GHCR로 발행하고 Oracle Cloud 서버에 자동 배포한다.
 - `deploy/docker-compose.prod.yml`: 서버에서 GHCR 이미지를 받아 바로 띄울 수 있는 운영용 예시 파일이다.
 - `deploy/nginx.conf`: 운영 서버에서 `nginx` 컨테이너가 프론트와 백엔드로 라우팅할 리버스 프록시 설정이다.
+- `deploy/nginx.https.conf`: 인증서 발급 후 HTTPS 전환에 사용할 운영용 Nginx 설정이다.
 - `deploy/.env.example`: 서버에서 직접 관리할 `.env` 파일 템플릿이다.
 
 ## 워크플로우 설명
@@ -45,8 +46,12 @@
   - `/api` 요청을 `backend:8080` 으로 프록시한다.
   - SPA 라우팅을 위해 모든 프론트 경로를 `index.html` 로 fallback 한다.
 - `deploy/nginx.conf`
-  - 외부 요청을 받는 운영용 리버스 프록시이다.
+  - 외부 요청을 받는 운영용 HTTP 리버스 프록시이다.
+  - `/.well-known/acme-challenge/` 경로를 열어 Let’s Encrypt HTTP-01 인증을 받을 수 있게 한다.
   - `/api`, `/ws` 는 `backend` 로 보내고, 그 외 경로는 `frontend` 로 보낸다.
+- `deploy/nginx.https.conf`
+  - 인증서 발급 후 사용할 HTTPS 리버스 프록시 설정이다.
+  - 80 포트는 HTTPS 로 리다이렉트하고, 443 포트에서 실제 TLS 종료를 수행한다.
 
 ## Oracle Cloud 서버 배포 방식
 
@@ -119,6 +124,65 @@ docker compose -f docker-compose.prod.yml --env-file .env up -d
 ```
 
 운영에서는 외부 포트를 `nginx` 컨테이너만 열고, `frontend` 와 `backend` 는 내부 네트워크에서만 통신한다.
+
+## HTTPS 설정
+
+현재 구성은 인증서 발급 전에도 기존 HTTP 서비스를 유지할 수 있도록 준비되어 있다.
+
+### 1. Oracle 방화벽 열기
+
+- `80` 포트가 이미 열려 있어야 한다.
+- HTTPS 적용 시 `443` 포트도 Oracle Cloud Security List 또는 NSG 에서 열어야 한다.
+
+### 2. 인증서 발급용 현재 상태 배포
+
+먼저 현재의 `deploy/nginx.conf` 로 HTTP 서비스를 유지한 채 배포한다.
+
+```bash
+cd /home/opc/apps/muse-service
+docker compose --env-file .env -f docker-compose.prod.yml up -d nginx backend frontend
+```
+
+### 3. Let’s Encrypt 인증서 발급
+
+Certbot 과 Let’s Encrypt 는 무료 TLS 인증서를 발급할 수 있고, Certbot 공식 안내는 웹서버 환경에 따라 `certbot` 또는 `certonly` 방식을 제공한다. 이 구성에서는 Nginx 가 컨테이너 안에 있으므로 `webroot` 방식으로 인증서를 받는 쪽이 안전하다.
+
+```bash
+cd /home/opc/apps/muse-service
+docker compose --env-file .env -f docker-compose.prod.yml run --rm certbot \
+  certonly --webroot -w /var/www/certbot \
+  -d band-muse.kro.kr \
+  --email YOUR_EMAIL@example.com \
+  --agree-tos \
+  --no-eff-email
+```
+
+### 4. HTTPS 설정으로 전환
+
+인증서 발급이 끝나면 HTTPS 설정 파일로 교체하고 Nginx 를 재시작한다.
+
+```bash
+cd /home/opc/apps/muse-service
+cp nginx.https.conf nginx.conf
+docker compose --env-file .env -f docker-compose.prod.yml up -d nginx
+```
+
+### 5. 갱신
+
+갱신 테스트:
+
+```bash
+cd /home/opc/apps/muse-service
+docker compose --env-file .env -f docker-compose.prod.yml run --rm certbot renew --dry-run
+```
+
+실제 갱신 후 Nginx 반영:
+
+```bash
+cd /home/opc/apps/muse-service
+docker compose --env-file .env -f docker-compose.prod.yml run --rm certbot renew
+docker compose --env-file .env -f docker-compose.prod.yml exec nginx nginx -s reload
+```
 
 ## GitHub Secrets
 
