@@ -10,7 +10,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"  # 호스트에서 접속용(인텔리제이/pgAdmin)
+      - "5432:5432"
     volumes:
       - pg-data:/var/lib/postgresql/data
     healthcheck:
@@ -23,18 +23,16 @@ services:
     image: redis:7
     container_name: muse-redis
     restart: unless-stopped
-    command: [ "redis-server", "--appendonly", "yes" ]
+    command: [ "redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-6379}" ]
     ports:
       - "6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-6379}", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 20
-    profiles: [ "infra" ]
-
 #  mailhog:
 #    image: mailhog/mailhog:latest
 #    container_name: muse-mailhog

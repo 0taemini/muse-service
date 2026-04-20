@@ -7,11 +7,18 @@
 # Build
 /build/
 */build/
+backend/bin/
+backend/data/
 target/
 out/
+/.gradle-user-home*/
 
 # Logs
 *.log
 
 # Env
 .env
+
+# Codex
+AGENTS.md
+doc/

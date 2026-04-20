@@ -1,0 +1,4 @@
+cohort,name,email,phone
+41,SampleUserOne,sample1@example.com,010-1234-5678
+41,SampleUserTwo,sample2@example.com,01012345679
+42,SampleUserThree,,010-1111-2222
