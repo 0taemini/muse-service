@@ -2,8 +2,8 @@ import { CSSProperties, SVGProps, useEffect, useState } from 'react';
 import { cn } from '@shared/lib/cn';
 
 const INTRO_STORAGE_KEY = 'muse:first-visit-intro-seen';
-const DEFAULT_VISIBLE_MS = 1100;
-const REDUCED_MOTION_VISIBLE_MS = 500;
+const DEFAULT_VISIBLE_MS = 2600;
+const REDUCED_MOTION_VISIBLE_MS = 1200;
 const EXIT_MS = 400;
 
 type IntroPhase = 'checking' | 'visible' | 'exit' | 'done';

@@ -50,6 +50,8 @@ const statusTone: Record<SelectionStatus, 'confirmed' | 'candidate' | 'out'> = {
   OUT: 'out',
 };
 
+const EMPTY_ARRAY: never[] = [];
+
 type NoticeTone = 'success' | 'error';
 type SessionModalMode = 'create' | 'edit';
 
@@ -96,9 +98,12 @@ export function PerformanceOperationsPage() {
   });
   const usersQuery = useQuery({ queryKey: ['users'], queryFn: userApi.getAll });
 
-  const performances = performancesQuery.data?.data ?? [];
+  const performances = useMemo(
+    () => performancesQuery.data?.data ?? EMPTY_ARRAY,
+    [performancesQuery.data],
+  );
   const performance = performanceQuery.data?.data ?? null;
-  const users = usersQuery.data?.data ?? [];
+  const users = useMemo(() => usersQuery.data?.data ?? EMPTY_ARRAY, [usersQuery.data]);
   const songs = useMemo(
     () => [...(performance?.songs ?? [])].sort((a, b) => a.orderNo - b.orderNo),
     [performance],
@@ -126,7 +131,6 @@ export function PerformanceOperationsPage() {
     return new Map(entries);
   }, [songDetailQueries]);
 
-  const selectedSongDetail = selectedSongId ? songDetailsMap.get(selectedSongId) ?? null : null;
   const editingSongDetail = editingSongId ? songDetailsMap.get(editingSongId) ?? null : null;
   const editingSessionColumn = editingSessionColumnId
     ? columns.find((column) => column.performanceSessionColumnId === editingSessionColumnId) ?? null

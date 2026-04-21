@@ -113,6 +113,10 @@ public class UserServiceImpl implements UserService {
             allUser.changeCohort(request.cohort());
         }
 
+        if (request.rank() != null) {
+            user.changeRank(request.rank());
+        }
+
         if (request.password() != null) {
             String rawPassword = request.password().trim();
             if (!StringUtils.hasText(rawPassword)) {
