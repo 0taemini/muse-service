@@ -1,0 +1,21 @@
+<svg width="1600" height="1100" viewBox="0 0 1600 1100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="1100" fill="#F5F1FF"/>
+  <rect y="720" width="1600" height="380" fill="#1F1935"/>
+  <ellipse cx="805" cy="274" rx="478" ry="219" fill="#FFF1E8"/>
+  <ellipse cx="800" cy="316" rx="364" ry="162" fill="#7C66DB" fill-opacity="0.16"/>
+  <circle cx="238" cy="198" r="38" fill="#FFCCB0"/>
+  <circle cx="1366" cy="212" r="32" fill="#C9BEFF"/>
+  <rect x="248" y="434" width="1104" height="286" rx="28" fill="#2F2652"/>
+  <rect x="297" y="469" width="1006" height="216" rx="22" fill="#3A2F68"/>
+  <circle cx="452" cy="577" r="66" fill="#FFB68F"/>
+  <rect x="730" y="484" width="110" height="256" rx="55" fill="#F7F4FF"/>
+  <rect x="938" y="510" width="124" height="210" rx="62" fill="#F7F4FF"/>
+  <rect x="538" y="528" width="106" height="194" rx="53" fill="#F7F4FF"/>
+  <path d="M730 528C730 484.922 764.922 450 808 450C851.078 450 886 484.922 886 528V688H730V528Z" fill="#241B42"/>
+  <path d="M527 566C527 527.34 558.34 496 597 496C635.66 496 667 527.34 667 566V690H527V566Z" fill="#241B42"/>
+  <path d="M919 566C919 527.34 950.34 496 989 496C1027.66 496 1059 527.34 1059 566V690H919V566Z" fill="#241B42"/>
+  <rect x="430" y="766" width="742" height="172" rx="26" fill="#FFFFFF"/>
+  <rect x="472" y="810" width="258" height="18" rx="9" fill="#D9D0FF"/>
+  <rect x="472" y="846" width="430" height="18" rx="9" fill="#ECE7FF"/>
+  <rect x="1046" y="806" width="82" height="82" rx="18" fill="#5A43BA"/>
+</svg>

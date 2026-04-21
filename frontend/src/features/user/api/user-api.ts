@@ -1,10 +1,11 @@
 import { http } from '@shared/api/http';
 import type { ApiResponse } from '@shared/types/api';
-import type { User } from '@entities/user/model/user.types';
+import type { User, UserRank } from '@entities/user/model/user.types';
 
 export interface UpdateProfilePayload {
   email?: string;
   cohort?: number;
+  rank?: UserRank;
   currentPassword?: string;
   password?: string;
 }

@@ -40,7 +40,7 @@ const stepCopy: StepCopy[] = [
   {
     id: 2,
     label: '인증번호 확인',
-    helper: '전송된 인증번호를 입력해 회원가입용 인증 토큰을 발급받습니다.',
+    helper: '받은 인증번호를 입력하고 본인 확인을 완료합니다.',
   },
   {
     id: 3,
@@ -113,10 +113,8 @@ export function SignupPageV2() {
   const currentStep = stepCopy.find((step) => step.id === activeStep) ?? stepCopy[0];
   const sendPhoneValue = sendForm.watch('phone');
   const codePhoneValue = codeForm.watch('phone');
-
   const sendPhoneField = sendForm.register('phone');
   const codePhoneField = codeForm.register('phone');
-
   const registerEmail = registerForm.watch('email');
   const registerNickname = registerForm.watch('nickname');
 
@@ -161,147 +159,147 @@ export function SignupPageV2() {
   });
 
   return (
-    <section className="mx-auto flex w-full max-w-[860px] flex-col gap-3 md:gap-5">
-      <Card className="hidden border-slate-200 bg-white px-6 py-6 shadow-[0_18px_44px_rgba(15,23,42,0.06)] md:block md:px-8">
-        <div className="space-y-3">
-          <h2 className="text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl">회원가입</h2>
-          <p className="text-sm leading-7 text-slate-600 md:text-base">
-            뮤즈동아리 사람만 회원가입이 가능합니다. {currentStep.helper}
+    <section className="mx-auto flex w-full max-w-[640px] flex-col gap-4">
+      <Card className="space-y-6">
+        <div className="space-y-2">
+          <h2 className="text-3xl font-semibold tracking-tight text-slate-900">회원가입</h2>
+          <p className="text-sm leading-7 text-slate-500">
+            뮤즈 동아리 멤버만 회원가입이 가능합니다. {currentStep.helper}
           </p>
         </div>
-      </Card>
 
-      <Card className="overflow-hidden border-slate-200 p-0 shadow-[0_18px_44px_rgba(15,23,42,0.06)]">
-        <div className="space-y-6 px-6 py-7 md:px-8 md:py-8">
-          <div className="space-y-2 md:hidden">
-            <h2 className="text-2xl font-semibold tracking-tight text-slate-950">회원가입</h2>
-            <p className="text-sm leading-6 text-slate-600">뮤즈동아리 사람만 회원가입이 가능합니다.</p>
-          </div>
-
-          <div className="space-y-2 border-b border-slate-200 pb-5">
-            <p className="text-sm font-medium text-slate-500">현재 단계</p>
-            <p className="text-2xl font-semibold tracking-tight text-slate-950">{currentStep.label}</p>
-            <p className="hidden text-sm leading-7 text-slate-600 md:block">
-              회원 정보는 동아리 등록 정보와 일치해야 다음 단계로 진행할 수 있습니다.
-            </p>
-          </div>
-
-          {activeStep === 1 ? (
-            <form className="space-y-5" onSubmit={sendForm.handleSubmit((values) => sendMutation.mutate(values))}>
-              <div className="grid gap-5 md:grid-cols-2">
-                <FormField label="이름" error={sendForm.formState.errors.name?.message}>
-                  <Input autoComplete="name" placeholder="이름을 입력해 주세요" {...sendForm.register('name')} />
-                </FormField>
-                <FormField label="기수" error={sendForm.formState.errors.cohort?.message?.toString()}>
-                  <Input type="number" min={1} {...sendForm.register('cohort', { valueAsNumber: true })} />
-                </FormField>
-              </div>
-              <FormField label="전화번호" error={sendForm.formState.errors.phone?.message}>
-                <Input
-                  autoComplete="tel"
-                  inputMode="numeric"
-                  placeholder="010-0000-0000"
-                  name={sendPhoneField.name}
-                  ref={sendPhoneField.ref}
-                  onBlur={sendPhoneField.onBlur}
-                  value={sendPhoneValue}
-                  onChange={(event) =>
-                    sendForm.setValue('phone', formatPhoneNumber(event.target.value), {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    })
-                  }
-                />
-              </FormField>
-              <div className="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center">
-                <Button type="submit" className="sm:min-w-[180px]" disabled={sendMutation.isPending}>
-                  {sendMutation.isPending ? '인증번호 발송 중...' : '인증번호 보내기'}
-                </Button>
-                <p className="text-sm leading-6 text-slate-500">
-                  전화번호는 숫자만 입력해도 자동으로 하이픈이 들어갑니다.
-                </p>
-              </div>
-            </form>
-          ) : null}
-
-          {activeStep === 2 ? (
-            <form className="space-y-5" onSubmit={codeForm.handleSubmit((values) => verifyMutation.mutate(values))}>
-              <div className="grid gap-5 md:grid-cols-2">
-                <FormField label="이름" error={codeForm.formState.errors.name?.message}>
-                  <Input autoComplete="name" placeholder="이름을 입력해 주세요" {...codeForm.register('name')} />
-                </FormField>
-                <FormField label="기수" error={codeForm.formState.errors.cohort?.message?.toString()}>
-                  <Input type="number" min={1} {...codeForm.register('cohort', { valueAsNumber: true })} />
-                </FormField>
-              </div>
-              <FormField label="전화번호" error={codeForm.formState.errors.phone?.message}>
-                <Input
-                  autoComplete="tel"
-                  inputMode="numeric"
-                  placeholder="010-0000-0000"
-                  name={codePhoneField.name}
-                  ref={codePhoneField.ref}
-                  onBlur={codePhoneField.onBlur}
-                  value={codePhoneValue}
-                  onChange={(event) =>
-                    codeForm.setValue('phone', formatPhoneNumber(event.target.value), {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    })
-                  }
-                />
-              </FormField>
-              <FormField label="인증번호" error={codeForm.formState.errors.code?.message}>
-                <Input inputMode="numeric" placeholder="숫자 6자리" {...codeForm.register('code')} />
-              </FormField>
-              <div className="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row">
-                <Button type="button" variant="secondary" onClick={() => setActiveStep(1)}>
-                  이전 단계
-                </Button>
-                <Button type="submit" className="sm:min-w-[180px]" disabled={verifyMutation.isPending}>
-                  {verifyMutation.isPending ? '인증번호 확인 중...' : '인증번호 확인'}
-                </Button>
-              </div>
-            </form>
-          ) : null}
-
-          {activeStep === 3 ? (
-            <form className="space-y-5" onSubmit={registerForm.handleSubmit((values) => signupMutation.mutate(values))}>
-              <div className="grid gap-5 md:grid-cols-2">
-                <FormField label="이메일" error={registerForm.formState.errors.email?.message}>
-                  <Input autoComplete="email" type="email" placeholder="muse@example.com" {...registerForm.register('email')} />
-                </FormField>
-                <FormField label="닉네임" error={registerForm.formState.errors.nickname?.message}>
-                  <Input placeholder="표시할 이름" {...registerForm.register('nickname')} />
-                </FormField>
-              </div>
-              <div className="grid gap-5 md:grid-cols-2">
-                <FormField label="비밀번호" hint={passwordRuleMessage} error={registerForm.formState.errors.password?.message}>
-                  <Input autoComplete="new-password" type="password" {...registerForm.register('password')} />
-                </FormField>
-                <FormField label="비밀번호 확인" error={registerForm.formState.errors.confirmPassword?.message}>
-                  <Input autoComplete="new-password" type="password" {...registerForm.register('confirmPassword')} />
-                </FormField>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-6 text-slate-600">
-                <p>
-                  확인된 멤버 정보: {sentProfile ? `${sentProfile.name} / ${sentProfile.cohort}기 / ${sentProfile.phone}` : '아직 인증 전'}
-                </p>
-                <p className="mt-1 break-all">
-                  계정 정보: {registerNickname || '닉네임 미입력'} / {registerEmail || '이메일 미입력'}
-                </p>
-              </div>
-              <div className="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row">
-                <Button type="button" variant="secondary" onClick={() => setActiveStep(2)}>
-                  이전 단계
-                </Button>
-                <Button type="submit" className="sm:min-w-[180px]" disabled={signupMutation.isPending}>
-                  {signupMutation.isPending ? '회원가입 처리 중...' : '회원가입 완료'}
-                </Button>
-              </div>
-            </form>
-          ) : null}
+        <div className="space-y-2 border-b border-slate-200 pb-5">
+          <p className="text-2xl font-semibold tracking-tight text-slate-950">{currentStep.label}</p>
         </div>
+
+        {activeStep === 1 ? (
+          <form className="space-y-5" onSubmit={sendForm.handleSubmit((values) => sendMutation.mutate(values))}>
+            <div className="grid gap-5 md:grid-cols-2">
+              <FormField label="이름" error={sendForm.formState.errors.name?.message}>
+                <Input autoComplete="name" placeholder="이름을 입력해 주세요" {...sendForm.register('name')} />
+              </FormField>
+
+              <FormField label="기수" error={sendForm.formState.errors.cohort?.message?.toString()}>
+                <Input type="number" min={1} {...sendForm.register('cohort', { valueAsNumber: true })} />
+              </FormField>
+            </div>
+
+            <FormField label="전화번호" error={sendForm.formState.errors.phone?.message}>
+              <Input
+                autoComplete="tel"
+                inputMode="numeric"
+                placeholder="010-0000-0000"
+                name={sendPhoneField.name}
+                ref={sendPhoneField.ref}
+                onBlur={sendPhoneField.onBlur}
+                value={sendPhoneValue}
+                onChange={(event) =>
+                  sendForm.setValue('phone', formatPhoneNumber(event.target.value), {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
+              />
+            </FormField>
+
+            <div className="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center">
+              <Button type="submit" className="sm:min-w-[180px]" disabled={sendMutation.isPending}>
+                {sendMutation.isPending ? '인증번호 발송 중...' : '인증번호 보내기'}
+              </Button>
+              <p className="text-sm leading-6 text-slate-500">
+                숫자만 입력해도 자동으로 하이픈이 붙습니다.
+              </p>
+            </div>
+          </form>
+        ) : null}
+
+        {activeStep === 2 ? (
+          <form className="space-y-5" onSubmit={codeForm.handleSubmit((values) => verifyMutation.mutate(values))}>
+            <div className="grid gap-5 md:grid-cols-2">
+              <FormField label="이름" error={codeForm.formState.errors.name?.message}>
+                <Input autoComplete="name" placeholder="이름을 입력해 주세요" {...codeForm.register('name')} />
+              </FormField>
+
+              <FormField label="기수" error={codeForm.formState.errors.cohort?.message?.toString()}>
+                <Input type="number" min={1} {...codeForm.register('cohort', { valueAsNumber: true })} />
+              </FormField>
+            </div>
+
+            <FormField label="전화번호" error={codeForm.formState.errors.phone?.message}>
+              <Input
+                autoComplete="tel"
+                inputMode="numeric"
+                placeholder="010-0000-0000"
+                name={codePhoneField.name}
+                ref={codePhoneField.ref}
+                onBlur={codePhoneField.onBlur}
+                value={codePhoneValue}
+                onChange={(event) =>
+                  codeForm.setValue('phone', formatPhoneNumber(event.target.value), {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
+              />
+            </FormField>
+
+            <FormField label="인증번호" error={codeForm.formState.errors.code?.message}>
+              <Input inputMode="numeric" placeholder="숫자 6자리" {...codeForm.register('code')} />
+            </FormField>
+
+            <div className="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row">
+              <Button type="button" variant="secondary" onClick={() => setActiveStep(1)}>
+                이전 단계
+              </Button>
+              <Button type="submit" className="sm:min-w-[180px]" disabled={verifyMutation.isPending}>
+                {verifyMutation.isPending ? '인증번호 확인 중...' : '인증번호 확인'}
+              </Button>
+            </div>
+          </form>
+        ) : null}
+
+        {activeStep === 3 ? (
+          <form className="space-y-5" onSubmit={registerForm.handleSubmit((values) => signupMutation.mutate(values))}>
+            <div className="grid gap-5 md:grid-cols-2">
+              <FormField label="이메일" error={registerForm.formState.errors.email?.message}>
+                <Input autoComplete="email" type="email" placeholder="muse@example.com" {...registerForm.register('email')} />
+              </FormField>
+
+              <FormField label="닉네임" error={registerForm.formState.errors.nickname?.message}>
+                <Input placeholder="표시될 이름" {...registerForm.register('nickname')} />
+              </FormField>
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-2">
+              <FormField label="비밀번호" hint={passwordRuleMessage} error={registerForm.formState.errors.password?.message}>
+                <Input autoComplete="new-password" type="password" {...registerForm.register('password')} />
+              </FormField>
+
+              <FormField label="비밀번호 확인" error={registerForm.formState.errors.confirmPassword?.message}>
+                <Input autoComplete="new-password" type="password" {...registerForm.register('confirmPassword')} />
+              </FormField>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-6 text-slate-600">
+              <p>
+                확인된 멤버 정보: {sentProfile ? `${sentProfile.name} / ${sentProfile.cohort}기 / ${sentProfile.phone}` : '아직 인증 전'}
+              </p>
+              <p className="mt-1 break-all">
+                계정 정보: {registerNickname || '닉네임 미입력'} / {registerEmail || '이메일 미입력'}
+              </p>
+              <p className="mt-1 hidden">{verificationToken}</p>
+            </div>
+
+            <div className="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row">
+              <Button type="button" variant="secondary" onClick={() => setActiveStep(2)}>
+                이전 단계
+              </Button>
+              <Button type="submit" className="sm:min-w-[180px]" disabled={signupMutation.isPending}>
+                {signupMutation.isPending ? '회원가입 처리 중...' : '회원가입 완료'}
+              </Button>
+            </div>
+          </form>
+        ) : null}
       </Card>
     </section>
   );
