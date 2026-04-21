@@ -13,7 +13,7 @@ interface StatePanelProps {
 
 const toneClasses: Record<Tone, string> = {
   default: 'border-dashed border-slate-300 bg-slate-50 text-slate-600',
-  accent: 'border-[#cddbe0] bg-[#f3f8f9] text-[#37515a]',
+  accent: 'border-[#ddd4ff] bg-[#f7f4ff] text-[#5a43ba]',
   danger: 'border-rose-200 bg-rose-50 text-rose-700',
   inverse: 'border-white/15 bg-white/10 text-slate-200',
 };

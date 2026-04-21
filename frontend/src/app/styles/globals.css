@@ -7,24 +7,24 @@
 @layer base {
   :root {
     --page-max-width: 1440px;
-    --canvas-top: #f7f3ea;
-    --canvas-bottom: #eef3ef;
-    --surface-base: rgba(255, 255, 255, 0.9);
-    --surface-muted: #f6f7f5;
-    --surface-strong: #12252d;
-    --border-soft: rgba(148, 163, 184, 0.24);
-    --text-strong: #122025;
-    --text-muted: #51606a;
-    --brand-strong: #14323f;
-    --brand: #1d5b67;
-    --brand-soft: #e4edf0;
-    --warm: #d79f52;
-    --success-bg: #dcfce7;
-    --success-text: #166534;
-    --warning-bg: #fef3c7;
-    --warning-text: #92400e;
-    --danger-bg: #ffe4e6;
-    --danger-text: #be123c;
+    --canvas-top: #fcfbff;
+    --canvas-bottom: #f7f5fb;
+    --surface-base: rgba(255, 255, 255, 0.94);
+    --surface-muted: #f6f3ff;
+    --surface-strong: #2f225b;
+    --border-soft: rgba(95, 75, 182, 0.12);
+    --text-strong: #241b42;
+    --text-muted: #6f678b;
+    --brand-strong: #4e3b9d;
+    --brand: #6a54c8;
+    --brand-soft: #f1ecff;
+    --warm: #ffddc8;
+    --success-bg: #eef7f1;
+    --success-text: #256148;
+    --warning-bg: #fff3df;
+    --warning-text: #8b5a25;
+    --danger-bg: #ffe9ea;
+    --danger-text: #b64858;
   }
 
   * { @apply box-border; }
@@ -33,8 +33,9 @@
     font-family: 'IBM Plex Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', 'Segoe UI', sans-serif;
     color: var(--text-strong);
     background:
-      radial-gradient(circle at top left, rgba(215, 159, 82, 0.18), transparent 26%),
-      radial-gradient(circle at top right, rgba(29, 91, 103, 0.14), transparent 24%),
+      radial-gradient(circle at top left, rgba(126, 96, 229, 0.14), transparent 24%),
+      radial-gradient(circle at top right, rgba(255, 218, 197, 0.24), transparent 22%),
+      radial-gradient(circle at 78% 74%, rgba(202, 188, 255, 0.16), transparent 24%),
       linear-gradient(180deg, var(--canvas-top) 0%, var(--canvas-bottom) 100%);
   }
 
@@ -46,7 +47,7 @@
 
 @layer components {
   .page-shell {
-    @apply mx-auto flex min-h-screen w-full flex-col px-4 pb-10 pt-6 md:px-6 lg:px-8;
+    @apply mx-auto flex min-h-screen w-full flex-col px-4 pb-10 pt-5 md:px-6 md:pt-6 lg:px-8;
     max-width: var(--page-max-width);
   }
 
@@ -54,7 +55,7 @@
     @apply rounded-[28px] border p-5 md:p-8;
     border-color: var(--border-soft);
     background: var(--surface-base);
-    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+    box-shadow: 0 18px 44px rgba(52, 35, 110, 0.08);
     backdrop-filter: blur(18px);
   }
 
@@ -71,20 +72,20 @@
   .sticker {
     @apply inline-flex items-center rounded-full px-4 py-2 text-xs font-semibold shadow-sm;
     border: 1px solid var(--border-soft);
-    background: rgba(255, 255, 255, 0.86);
+    background: rgba(255, 255, 255, 0.94);
     color: var(--text-muted);
   }
 
   .soft-panel {
     @apply rounded-[24px] border;
     border-color: var(--border-soft);
-    background: rgba(255, 255, 255, 0.88);
-    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 16px 36px rgba(52, 35, 110, 0.06);
   }
 
   .section-kicker {
     @apply text-[11px] font-semibold uppercase tracking-[0.28em];
-    color: #64748b;
+    color: #7a67c7;
   }
 
   .page-title {
@@ -94,29 +95,30 @@
 
   .hero-panel {
     @apply overflow-hidden rounded-[32px] border px-6 py-7 text-white md:px-8 md:py-9;
-    border-color: rgba(255, 255, 255, 0.12);
+    border-color: rgba(95, 75, 182, 0.12);
     background:
-      radial-gradient(circle at top right, rgba(215, 159, 82, 0.22), transparent 34%),
-      linear-gradient(135deg, #102732 0%, #18424d 56%, #1d5b67 100%);
-    box-shadow: 0 28px 70px rgba(16, 39, 50, 0.24);
+      radial-gradient(circle at top right, rgba(255, 221, 200, 0.95), transparent 26%),
+      radial-gradient(circle at 18% 18%, rgba(116, 90, 219, 0.2), transparent 28%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 245, 255, 0.96) 100%);
+    box-shadow: 0 24px 58px rgba(67, 46, 140, 0.1);
   }
 
   .app-grid {
     background-image:
-      linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+      linear-gradient(rgba(106, 84, 200, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(106, 84, 200, 0.05) 1px, transparent 1px);
     background-size: 24px 24px;
   }
 
   .panel-muted {
     @apply rounded-[24px] border p-5;
-    border-color: #e6ebea;
+    border-color: rgba(95, 75, 182, 0.1);
     background: var(--surface-muted);
   }
 
   .field-label {
     @apply text-sm font-medium;
-    color: #334155;
+    color: #524a71;
   }
 
   .intro-screen {
