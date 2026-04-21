@@ -4,7 +4,7 @@ const phoneRegex = /^\d{2,3}-?\d{3,4}-?\d{4}$/;
 const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)\S{8,64}$/;
 
 export const passwordRuleMessage =
-  '비밀번호는 8자 이상 64자 이하이며, 영문과 숫자를 각각 1자 이상 포함하고 공백을 사용할 수 없습니다.';
+  '비밀번호는 8자 이상 64자 이하이고, 영문과 숫자를 각각 1자 이상 포함하며 공백은 사용할 수 없습니다.';
 
 export const loginSchemaFixed = z.object({
   email: z.string().trim().email('이메일 형식을 확인해 주세요.'),
@@ -48,6 +48,7 @@ export const passwordResetSchemaFixed = z
 export const profileSchemaFixed = z.object({
   email: z.string().trim().email('이메일 형식을 확인해 주세요.').optional().or(z.literal('')),
   cohort: z.coerce.number().int().positive('기수는 1 이상의 숫자여야 합니다.').optional(),
+  rank: z.enum(['NEWBIE', 'ACTIVE', 'YB', 'OB']).optional(),
   currentPassword: z.string().optional(),
   password: z.string().regex(passwordRegex, passwordRuleMessage).optional().or(z.literal('')),
 });

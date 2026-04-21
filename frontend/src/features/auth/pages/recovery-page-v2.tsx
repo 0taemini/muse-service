@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -87,6 +87,30 @@ export function RecoveryPageV2() {
   const resetPhoneField = resetCodeForm.register('phone');
   const emailPhoneValue = emailForm.watch('phone');
   const resetPhoneValue = resetCodeForm.watch('phone');
+
+  const recoveryHeader = useMemo(() => {
+    if (activeTab === 'email') {
+      return {
+        kicker: 'Account',
+        title: '이메일 찾기',
+        description: '이름, 기수, 전화번호와 인증번호를 입력해 가입된 이메일을 확인할 수 있습니다.',
+      };
+    }
+
+    if (passwordResetToken) {
+      return {
+        kicker: 'Account',
+        title: '비밀번호 재설정',
+        description: '본인 확인이 완료되었습니다. 새 비밀번호를 입력해 저장해 주세요.',
+      };
+    }
+
+    return {
+      kicker: 'Account',
+      title: '비밀번호 재설정',
+      description: '이름, 기수, 전화번호와 인증번호로 본인 확인을 완료한 뒤 새 비밀번호를 설정합니다.',
+    };
+  }, [activeTab, passwordResetToken]);
 
   const emailSendMutation = useMutation({
     mutationFn: authApi.sendFindEmailVerification,
@@ -182,37 +206,89 @@ export function RecoveryPageV2() {
   };
 
   return (
-    <section className="mx-auto flex w-full max-w-[780px] flex-col gap-5">
-      <Card className="overflow-hidden border-slate-200 p-0 shadow-[0_18px_44px_rgba(15,23,42,0.06)]">
-        <div className="space-y-6 px-5 py-6 md:px-7 md:py-7">
-          {activeTab === 'email' ? (
-            <>
-              <div className="space-y-2 border-b border-slate-200 pb-5">
-                <p className="text-sm font-medium text-slate-500">이메일 찾기</p>
+    <section className="mx-auto flex w-full max-w-[640px] flex-col gap-5">
+      <Card className="space-y-6">
+        <div className="space-y-2">
+          <h2 className="text-3xl font-semibold tracking-tight text-slate-900">{recoveryHeader.title}</h2>
+          <p className="text-sm leading-7 text-slate-500">{recoveryHeader.description}</p>
+        </div>
+
+        {activeTab === 'email' ? (
+          <>
+            <form className="space-y-5" onSubmit={emailForm.handleSubmit((values) => emailFindMutation.mutate(values))}>
+              <div className="grid gap-5 md:grid-cols-2">
+                <FormField label="이름" error={emailForm.formState.errors.name?.message}>
+                  <Input autoComplete="name" placeholder="이름을 입력해 주세요" {...emailForm.register('name')} />
+                </FormField>
+
+                <FormField label="기수" error={emailForm.formState.errors.cohort?.message?.toString()}>
+                  <Input type="number" min={1} {...emailForm.register('cohort', { valueAsNumber: true })} />
+                </FormField>
               </div>
 
-              <form className="space-y-5" onSubmit={emailForm.handleSubmit((values) => emailFindMutation.mutate(values))}>
+              <FormField label="전화번호" error={emailForm.formState.errors.phone?.message}>
+                <Input
+                  autoComplete="tel"
+                  inputMode="numeric"
+                  placeholder="010-0000-0000"
+                  name={emailPhoneField.name}
+                  ref={emailPhoneField.ref}
+                  onBlur={emailPhoneField.onBlur}
+                  value={emailPhoneValue}
+                  onChange={(event) =>
+                    emailForm.setValue('phone', formatPhoneNumber(event.target.value), {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+                  }
+                />
+              </FormField>
+
+              <FormField label="인증번호" error={emailForm.formState.errors.code?.message}>
+                <Input autoComplete="one-time-code" inputMode="numeric" placeholder="숫자 6자리" {...emailForm.register('code')} />
+              </FormField>
+
+              <div className="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row">
+                <Button type="button" variant="secondary" onClick={handleEmailSend} disabled={emailSendMutation.isPending}>
+                  {emailSendMutation.isPending ? '인증번호 발송 중...' : '인증번호 보내기'}
+                </Button>
+                <Button type="submit" className="sm:min-w-[180px]" disabled={emailFindMutation.isPending}>
+                  {emailFindMutation.isPending ? '이메일 확인 중...' : '이메일 확인'}
+                </Button>
+              </div>
+            </form>
+
+            {foundEmail ? (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm font-medium text-emerald-700">
+                가입된 이메일: {foundEmail}
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <>
+            {!passwordResetToken ? (
+              <form className="space-y-5" onSubmit={resetCodeForm.handleSubmit((values) => resetVerifyMutation.mutate(values))}>
                 <div className="grid gap-5 md:grid-cols-2">
-                  <FormField label="이름" error={emailForm.formState.errors.name?.message}>
-                    <Input autoComplete="name" placeholder="이름을 입력해 주세요" {...emailForm.register('name')} />
+                  <FormField label="이름" error={resetCodeForm.formState.errors.name?.message}>
+                    <Input autoComplete="name" placeholder="이름을 입력해 주세요" {...resetCodeForm.register('name')} />
                   </FormField>
 
-                  <FormField label="기수" error={emailForm.formState.errors.cohort?.message?.toString()}>
-                    <Input type="number" min={1} {...emailForm.register('cohort', { valueAsNumber: true })} />
+                  <FormField label="기수" error={resetCodeForm.formState.errors.cohort?.message?.toString()}>
+                    <Input type="number" min={1} {...resetCodeForm.register('cohort', { valueAsNumber: true })} />
                   </FormField>
                 </div>
 
-                <FormField label="전화번호" error={emailForm.formState.errors.phone?.message}>
+                <FormField label="전화번호" error={resetCodeForm.formState.errors.phone?.message}>
                   <Input
                     autoComplete="tel"
                     inputMode="numeric"
                     placeholder="010-0000-0000"
-                    name={emailPhoneField.name}
-                    ref={emailPhoneField.ref}
-                    onBlur={emailPhoneField.onBlur}
-                    value={emailPhoneValue}
+                    name={resetPhoneField.name}
+                    ref={resetPhoneField.ref}
+                    onBlur={resetPhoneField.onBlur}
+                    value={resetPhoneValue}
                     onChange={(event) =>
-                      emailForm.setValue('phone', formatPhoneNumber(event.target.value), {
+                      resetCodeForm.setValue('phone', formatPhoneNumber(event.target.value), {
                         shouldDirty: true,
                         shouldValidate: true,
                       })
@@ -220,100 +296,43 @@ export function RecoveryPageV2() {
                   />
                 </FormField>
 
-                <FormField label="인증번호" error={emailForm.formState.errors.code?.message}>
-                  <Input autoComplete="one-time-code" inputMode="numeric" placeholder="숫자 6자리" {...emailForm.register('code')} />
+                <FormField label="인증번호" error={resetCodeForm.formState.errors.code?.message}>
+                  <Input autoComplete="one-time-code" inputMode="numeric" placeholder="숫자 6자리" {...resetCodeForm.register('code')} />
                 </FormField>
 
                 <div className="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row">
-                  <Button type="button" variant="secondary" onClick={handleEmailSend} disabled={emailSendMutation.isPending}>
-                    {emailSendMutation.isPending ? '인증번호 발송 중...' : '인증번호 보내기'}
+                  <Button type="button" variant="secondary" onClick={handleResetSend} disabled={resetSendMutation.isPending}>
+                    {resetSendMutation.isPending ? '인증번호 발송 중...' : '인증번호 보내기'}
                   </Button>
-                  <Button type="submit" className="sm:min-w-[180px]" disabled={emailFindMutation.isPending}>
-                    {emailFindMutation.isPending ? '이메일 확인 중...' : '이메일 확인'}
+                  <Button type="submit" className="sm:min-w-[180px]" disabled={resetVerifyMutation.isPending}>
+                    {resetVerifyMutation.isPending ? '인증 확인 중...' : '다음'}
                   </Button>
                 </div>
               </form>
+            ) : (
+              <form className="space-y-5" onSubmit={handleResetPasswordSubmit}>
+                <div className="grid gap-5 md:grid-cols-2">
+                  <FormField label="새 비밀번호" hint={passwordRuleMessage} error={resetForm.formState.errors.newPassword?.message}>
+                    <Input autoComplete="new-password" type="password" {...resetForm.register('newPassword')} />
+                  </FormField>
 
-              {foundEmail ? (
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm font-medium text-emerald-700">
-                  가입된 이메일: {foundEmail}
+                  <FormField label="비밀번호 확인" error={resetForm.formState.errors.confirmPassword?.message}>
+                    <Input autoComplete="new-password" type="password" {...resetForm.register('confirmPassword')} />
+                  </FormField>
                 </div>
-              ) : null}
-            </>
-          ) : (
-            <>
-              <div className="space-y-2 border-b border-slate-200 pb-5">
-                <p className="text-sm font-medium text-slate-500">비밀번호 재설정</p>
-              </div>
 
-              {!passwordResetToken ? (
-                <form className="space-y-5" onSubmit={resetCodeForm.handleSubmit((values) => resetVerifyMutation.mutate(values))}>
-                  <div className="grid gap-5 md:grid-cols-2">
-                    <FormField label="이름" error={resetCodeForm.formState.errors.name?.message}>
-                      <Input autoComplete="name" placeholder="이름을 입력해 주세요" {...resetCodeForm.register('name')} />
-                    </FormField>
-
-                    <FormField label="기수" error={resetCodeForm.formState.errors.cohort?.message?.toString()}>
-                      <Input type="number" min={1} {...resetCodeForm.register('cohort', { valueAsNumber: true })} />
-                    </FormField>
-                  </div>
-
-                  <FormField label="전화번호" error={resetCodeForm.formState.errors.phone?.message}>
-                    <Input
-                      autoComplete="tel"
-                      inputMode="numeric"
-                      placeholder="010-0000-0000"
-                      name={resetPhoneField.name}
-                      ref={resetPhoneField.ref}
-                      onBlur={resetPhoneField.onBlur}
-                      value={resetPhoneValue}
-                      onChange={(event) =>
-                        resetCodeForm.setValue('phone', formatPhoneNumber(event.target.value), {
-                          shouldDirty: true,
-                          shouldValidate: true,
-                        })
-                      }
-                    />
-                  </FormField>
-
-                  <FormField label="인증번호" error={resetCodeForm.formState.errors.code?.message}>
-                    <Input autoComplete="one-time-code" inputMode="numeric" placeholder="숫자 6자리" {...resetCodeForm.register('code')} />
-                  </FormField>
-
-                  <div className="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row">
-                    <Button type="button" variant="secondary" onClick={handleResetSend} disabled={resetSendMutation.isPending}>
-                      {resetSendMutation.isPending ? '인증번호 발송 중...' : '인증번호 보내기'}
-                    </Button>
-                    <Button type="submit" className="sm:min-w-[180px]" disabled={resetVerifyMutation.isPending}>
-                      {resetVerifyMutation.isPending ? '인증 확인 중...' : '다음'}
-                    </Button>
-                  </div>
-                </form>
-              ) : (
-                <form className="space-y-5" onSubmit={handleResetPasswordSubmit}>
-                  <div className="grid gap-5 md:grid-cols-2">
-                    <FormField label="새 비밀번호" hint={passwordRuleMessage} error={resetForm.formState.errors.newPassword?.message}>
-                      <Input autoComplete="new-password" type="password" {...resetForm.register('newPassword')} />
-                    </FormField>
-
-                    <FormField label="비밀번호 확인" error={resetForm.formState.errors.confirmPassword?.message}>
-                      <Input autoComplete="new-password" type="password" {...resetForm.register('confirmPassword')} />
-                    </FormField>
-                  </div>
-
-                  <div className="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row">
-                    <Button type="button" variant="ghost" onClick={moveBackToVerification}>
-                      이전 단계
-                    </Button>
-                    <Button type="submit" className="sm:min-w-[180px]" disabled={resetPasswordMutation.isPending}>
-                      {resetPasswordMutation.isPending ? '비밀번호 변경 중...' : '비밀번호 변경'}
-                    </Button>
-                  </div>
-                </form>
-              )}
-            </>
-          )}
-        </div>
+                <div className="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row">
+                  <Button type="button" variant="ghost" onClick={moveBackToVerification}>
+                    이전 단계
+                  </Button>
+                  <Button type="submit" className="sm:min-w-[180px]" disabled={resetPasswordMutation.isPending}>
+                    {resetPasswordMutation.isPending ? '비밀번호 변경 중...' : '비밀번호 변경'}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </>
+        )}
       </Card>
     </section>
   );
