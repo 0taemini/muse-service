@@ -6,7 +6,6 @@ import { SignupPageV2 } from '@features/auth/pages/signup-page-v2';
 import { RecoveryPageV2 } from '@features/auth/pages/recovery-page-v2';
 import { MyPageV2 } from '@features/user/pages/my-page-v2';
 import { useAuthStore } from '@features/auth/store/auth-store';
-import { AuthLabPageV2 } from '@features/auth/pages/auth-lab-page-v2';
 import { PerformanceOperationsPage } from '@features/performance/pages/performance-operations-page';
 
 function ProtectedRoute() {
@@ -24,6 +23,7 @@ export const router = createBrowserRouter([
     path: '/',
     element: <OperationsLayoutV2 />,
     children: [
+      { index: true, element: <HomeDashboardPageV2 /> },
       {
         element: <PublicOnlyRoute />,
         children: [
@@ -35,11 +35,9 @@ export const router = createBrowserRouter([
       {
         element: <ProtectedRoute />,
         children: [
-          { index: true, element: <HomeDashboardPageV2 /> },
           { path: 'performances', element: <PerformanceOperationsPage /> },
           { path: 'performances-lab', element: <Navigate to="/performances" replace /> },
           { path: 'me', element: <MyPageV2 /> },
-          { path: 'test', element: <AuthLabPageV2 /> },
         ],
       },
     ],
