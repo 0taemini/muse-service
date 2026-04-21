@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuthStore } from '@features/auth/store/auth-store';
 import { useLogout } from '@features/auth/hooks/use-auth-actions';
+import { FirstVisitIntro } from '@shared/components/layout/first-visit-intro';
 import { Button } from '@shared/components/ui/button';
 
 const publicMenuItems = [
@@ -24,6 +25,7 @@ export function OperationsLayoutV2() {
 
   return (
     <div className="min-h-screen text-slate-900">
+      <FirstVisitIntro />
       <header className="sticky top-0 z-30 border-b border-white/60 bg-[rgba(247,243,234,0.86)] backdrop-blur-xl">
         <div className="page-shell min-h-0 gap-4 pb-4 pt-4">
           <div className="flex items-center justify-between gap-4">
