@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -117,5 +117,209 @@
   .field-label {
     @apply text-sm font-medium;
     color: #334155;
+  }
+
+  .intro-screen {
+    background:
+      radial-gradient(circle at 50% 50%, rgba(255, 245, 255, 0.16), transparent 20%),
+      radial-gradient(circle at 30% 42%, rgba(215, 75, 255, 0.28), transparent 30%),
+      radial-gradient(circle at 72% 56%, rgba(171, 188, 255, 0.28), transparent 28%),
+      radial-gradient(circle at 50% 18%, rgba(247, 183, 255, 0.12), transparent 26%),
+      linear-gradient(135deg, #b73cff 0%, #d16cff 34%, #b57dff 58%, #bac5ff 100%);
+  }
+
+  .intro-word-stage {
+    perspective: 1200px;
+    position: relative;
+    z-index: 10;
+  }
+
+  .intro-anime-instrument {
+    position: absolute;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.9;
+    transform: rotate(var(--intro-anime-rotate, 0deg));
+    animation: intro-anime-bounce 6s ease-in-out infinite;
+    z-index: 2;
+    color: rgba(255, 255, 255, 0.94);
+  }
+
+  .intro-anime-note {
+    position: absolute;
+    width: 1.1rem;
+    height: 1.1rem;
+    border-radius: 9999px;
+    background:
+      radial-gradient(circle, rgba(255, 255, 255, 0.95) 0 28%, rgba(255, 224, 250, 0.72) 32%, transparent 72%);
+    box-shadow: 0 0 18px rgba(255, 223, 253, 0.42);
+    z-index: 1;
+  }
+
+  .intro-anime-note::before,
+  .intro-anime-note::after {
+    position: absolute;
+    inset: 0;
+    content: '';
+    border-radius: 9999px;
+    background: inherit;
+  }
+
+  .intro-anime-note::before {
+    transform: rotate(45deg) scaleX(0.3) scaleY(1.45);
+  }
+
+  .intro-anime-note::after {
+    transform: rotate(45deg) scaleX(1.45) scaleY(0.3);
+  }
+
+  .intro-anime-note-a {
+    top: 6%;
+    right: 12%;
+    animation: intro-anime-note-a 3s ease-in-out infinite;
+  }
+
+  .intro-anime-note-b {
+    bottom: 10%;
+    left: 10%;
+    width: 0.8rem;
+    height: 0.8rem;
+    animation: intro-anime-note-b 3.8s ease-in-out infinite;
+  }
+
+  .intro-cute-sparkle {
+    position: absolute;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 9999px;
+    background:
+      radial-gradient(circle, rgba(255, 255, 255, 0.98) 0 24%, rgba(240, 227, 255, 0.72) 28%, transparent 72%);
+    box-shadow: 0 0 24px rgba(255, 241, 255, 0.42);
+    animation: intro-cute-twinkle 3.2s ease-in-out infinite;
+  }
+
+  .intro-cute-sparkle::before,
+  .intro-cute-sparkle::after {
+    position: absolute;
+    inset: 0;
+    content: '';
+    border-radius: 9999px;
+    background: inherit;
+  }
+
+  .intro-cute-sparkle::before {
+    transform: rotate(45deg) scaleX(0.34) scaleY(1.6);
+  }
+
+  .intro-cute-sparkle::after {
+    transform: rotate(45deg) scaleX(1.6) scaleY(0.34);
+  }
+
+  .intro-cinema-letter {
+    display: inline-block;
+    min-width: 0.9em;
+    text-align: center;
+    transform-origin: 50% 70%;
+    color: rgba(255, 255, 255, 0.98);
+    text-shadow:
+      0 0 12px rgba(255, 255, 255, 0.42),
+      0 0 28px rgba(232, 182, 255, 0.28),
+      0 12px 28px rgba(84, 36, 154, 0.24);
+    box-shadow:
+      inset 0 0 0 transparent,
+      0 0 0 transparent;
+    animation: intro-cinema-letter 460ms cubic-bezier(0.2, 0.9, 0.25, 1.12) both;
+  }
+}
+
+@keyframes intro-cinema-letter {
+  from {
+    opacity: 0;
+    transform: translateY(68px) rotate(-18deg) scale(0.58);
+  }
+
+  48% {
+    opacity: 1;
+    transform: translateY(-12px) rotate(5deg) scale(1.08);
+  }
+
+  70% {
+    opacity: 1;
+    transform: translateY(5px) rotate(-2deg) scale(0.97);
+  }
+
+  84% {
+    transform: translateY(-3px) rotate(1deg) scale(1.015);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+}
+
+@keyframes intro-anime-bounce {
+  0%, 100% {
+    transform: translateY(0) rotate(var(--intro-anime-rotate, 0deg)) scale(1);
+  }
+
+  30% {
+    transform: translateY(-12px) rotate(calc(var(--intro-anime-rotate, 0deg) - 4deg)) scale(1.03);
+  }
+
+  58% {
+    transform: translateY(6px) rotate(calc(var(--intro-anime-rotate, 0deg) + 3deg)) scale(0.98);
+  }
+
+  78% {
+    transform: translateY(-4px) rotate(var(--intro-anime-rotate, 0deg)) scale(1.01);
+  }
+}
+
+@keyframes intro-anime-note-a {
+  0%, 100% {
+    opacity: 0.3;
+    transform: translate3d(0, 0, 0) scale(0.86);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translate3d(10px, -12px, 0) scale(1.08);
+  }
+}
+
+@keyframes intro-anime-note-b {
+  0%, 100% {
+    opacity: 0.22;
+    transform: translate3d(0, 0, 0) scale(0.72);
+  }
+
+  50% {
+    opacity: 0.82;
+    transform: translate3d(-8px, 12px, 0) scale(1);
+  }
+}
+
+@keyframes intro-cute-twinkle {
+  0%, 100% {
+    opacity: 0.42;
+    transform: scale(0.76) rotate(0deg);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.12) rotate(18deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-anime-instrument,
+  .intro-anime-note,
+  .intro-cute-sparkle,
+  .intro-cinema-letter {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
   }
 }

@@ -40,6 +40,11 @@ public interface PerformanceSongRepository extends JpaRepository<PerformanceSong
 
     List<PerformanceSong> findAllByPerformance_PerformanceIdAndIsDeletedFalseOrderByOrderNoAsc(Integer performanceId);
 
+    List<PerformanceSong> findAllByPerformance_PerformanceIdAndPerformanceSongIdInAndIsDeletedFalse(
+            Integer performanceId,
+            Collection<Integer> performanceSongIds
+    );
+
     interface PerformanceSongCountProjection {
         Integer getPerformanceId();
 

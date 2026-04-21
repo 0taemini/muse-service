@@ -151,7 +151,7 @@ Certbot 과 Let’s Encrypt 는 무료 TLS 인증서를 발급할 수 있고, Ce
 cd /home/opc/apps/muse-service
 docker compose --env-file .env -f docker-compose.prod.yml run --rm certbot \
   certonly --webroot -w /var/www/certbot \
-  -d band-muse.kro.kr \
+  -d museband.kr \
   --email YOUR_EMAIL@example.com \
   --agree-tos \
   --no-eff-email

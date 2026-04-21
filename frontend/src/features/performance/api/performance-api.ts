@@ -59,6 +59,24 @@ export interface PerformanceSongDetail {
   sessions: PerformanceSongSession[];
 }
 
+export interface ChatRoundSummary {
+  chatRoundId: number;
+  status: 'OPEN' | 'CLOSED';
+  openedAt: string;
+  closedAt: string | null;
+}
+
+export interface ChatRoomSummary {
+  chatRoomId: number;
+  performanceId: number;
+  performanceSongId: number;
+  songTitle: string;
+  singer: string;
+  orderNo: number;
+  selectionStatus: SelectionStatus;
+  currentRound: ChatRoundSummary | null;
+}
+
 export interface CreatePerformancePayload {
   title: string;
 }
@@ -94,6 +112,10 @@ export interface UpsertPerformanceSessionColumnPayload {
   sessionName: string;
   isRequired?: boolean;
   displayOrder?: number;
+}
+
+export interface CreateChatRoomsPayload {
+  performanceSongIds: number[];
 }
 
 const unwrap = async <T>(promise: Promise<{ data: ApiResponse<T> }>) => {
@@ -139,4 +161,8 @@ export const performanceApi = {
     ),
   deleteSong: (performanceId: number, performanceSongId: number) =>
     unwrap<void>(http.delete(`/api/v1/performances/${performanceId}/songs/${performanceSongId}`)),
+  getChatRooms: (performanceId: number) =>
+    unwrap<ChatRoomSummary[]>(http.get(`/api/v1/performances/${performanceId}/chat-rooms`)),
+  createChatRooms: (performanceId: number, payload: CreateChatRoomsPayload) =>
+    unwrap<ChatRoomSummary[]>(http.post(`/api/v1/performances/${performanceId}/chat-rooms`, payload)),
 };
