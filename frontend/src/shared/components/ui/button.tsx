@@ -11,9 +11,11 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const variants: Record<Variant, string> = {
   primary:
-    'bg-[#14323f] text-white shadow-[0_18px_36px_rgba(20,50,63,0.18)] hover:bg-[#102731] focus-visible:ring-[#b7cad0]',
-  secondary: 'bg-[#e4edf0] text-[#14323f] ring-1 ring-[#c8d7dc] hover:bg-[#d9e6ea] focus-visible:ring-[#b7cad0]',
-  ghost: 'bg-white/80 text-slate-700 ring-1 ring-slate-200 hover:bg-white hover:text-slate-950 focus-visible:ring-slate-200',
+    'bg-[#5a43ba] text-white shadow-[0_18px_36px_rgba(90,67,186,0.22)] hover:bg-[#4a35a4] focus-visible:ring-[#ddd4ff]',
+  secondary:
+    'bg-[#f3efff] text-[#35285f] ring-1 ring-[rgba(95,75,182,0.12)] hover:bg-[#ebe4ff] focus-visible:ring-[#ddd4ff]',
+  ghost:
+    'bg-white text-[#6f678b] ring-1 ring-[rgba(95,75,182,0.12)] hover:bg-[#faf8ff] hover:text-[#35285f] focus-visible:ring-[#e4dcff]',
 };
 
 const sizes: Record<Size, string> = {
