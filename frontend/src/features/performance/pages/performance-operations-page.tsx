@@ -3,6 +3,7 @@ import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/rea
 import { toApiMessage } from '@features/auth/api/auth-api';
 import {
   performanceApi,
+  type ChatRoomSummary,
   type PerformanceSessionColumn,
   type PerformanceSongDetail,
   type SelectionStatus,
@@ -74,6 +75,8 @@ export function PerformanceOperationsPage() {
   const [isCreateSongModalOpen, setIsCreateSongModalOpen] = useState(false);
   const [isEditSongModalOpen, setIsEditSongModalOpen] = useState(false);
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
+  const [isCreateChatRoomModalOpen, setIsCreateChatRoomModalOpen] = useState(false);
+  const [selectedChatRoomSongIds, setSelectedChatRoomSongIds] = useState<number[]>([]);
 
   const performancesQuery = useQuery({ queryKey: ['performances'], queryFn: performanceApi.getPerformances });
   const performanceQuery = useQuery({
@@ -84,6 +87,11 @@ export function PerformanceOperationsPage() {
   const columnsQuery = useQuery({
     queryKey: ['performance-columns', selectedPerformanceId],
     queryFn: () => performanceApi.getPerformanceSessionColumns(selectedPerformanceId!),
+    enabled: selectedPerformanceId !== null,
+  });
+  const chatRoomsQuery = useQuery({
+    queryKey: ['performance-chat-rooms', selectedPerformanceId],
+    queryFn: () => performanceApi.getChatRooms(selectedPerformanceId!),
     enabled: selectedPerformanceId !== null,
   });
   const usersQuery = useQuery({ queryKey: ['users'], queryFn: userApi.getAll });
@@ -99,6 +107,7 @@ export function PerformanceOperationsPage() {
     () => [...(columnsQuery.data?.data ?? [])].sort((a, b) => a.displayOrder - b.displayOrder),
     [columnsQuery.data],
   );
+  const visibleChatRooms = chatRoomsQuery.data?.data ?? [];
 
   const songDetailQueries = useQueries({
     queries: (selectedPerformanceId ? songs : []).map((song) => ({
@@ -126,6 +135,14 @@ export function PerformanceOperationsPage() {
   const userNameById = useMemo(
     () => new Map(users.map((user) => [user.userId, user.name] as const)),
     [users],
+  );
+  const confirmedCreatableSongs = useMemo(
+    () =>
+      songs.filter((song) => {
+        const detail = songDetailsMap.get(song.performanceSongId);
+        return song.selectionStatus === 'CONFIRMED' && detail?.chatRoomCreated === false;
+      }),
+    [songDetailsMap, songs],
   );
 
   useEffect(() => {
@@ -193,6 +210,14 @@ export function PerformanceOperationsPage() {
     });
   }, [columns.length, editingSessionColumn, isSessionModalOpen, sessionModalMode]);
 
+  useEffect(() => {
+    if (!isCreateChatRoomModalOpen) {
+      return;
+    }
+
+    setSelectedChatRoomSongIds(confirmedCreatableSongs.map((song) => song.performanceSongId));
+  }, [confirmedCreatableSongs, isCreateChatRoomModalOpen]);
+
   const setSuccessMessage = (nextMessage: string) => {
     setNoticeTone('success');
     setMessage(nextMessage);
@@ -208,6 +233,7 @@ export function PerformanceOperationsPage() {
     await queryClient.invalidateQueries({ queryKey: ['performance', performanceId] });
     await queryClient.invalidateQueries({ queryKey: ['performance-columns', performanceId] });
     await queryClient.invalidateQueries({ queryKey: ['performance-song', performanceId] });
+    await queryClient.invalidateQueries({ queryKey: ['performance-chat-rooms', performanceId] });
   };
 
   const closeCreatePerformanceModal = () => {
@@ -233,6 +259,11 @@ export function PerformanceOperationsPage() {
     setSessionColumnForm(emptySessionColumnForm);
   };
 
+  const closeCreateChatRoomModal = () => {
+    setIsCreateChatRoomModalOpen(false);
+    setSelectedChatRoomSongIds([]);
+  };
+
   const openEditSongModal = (songId: number) => {
     setSelectedSongId(songId);
     setEditingSongId(songId);
@@ -249,6 +280,20 @@ export function PerformanceOperationsPage() {
     setSessionModalMode('edit');
     setEditingSessionColumnId(columnId);
     setIsSessionModalOpen(true);
+  };
+
+  const toggleChatRoomSong = (performanceSongId: number) => {
+    setSelectedChatRoomSongIds((current) =>
+      current.includes(performanceSongId)
+        ? current.filter((id) => id !== performanceSongId)
+        : [...current, performanceSongId],
+    );
+  };
+
+  const toggleAllChatRoomSongs = () => {
+    setSelectedChatRoomSongIds((current) =>
+      current.length === confirmedCreatableSongs.length ? [] : confirmedCreatableSongs.map((song) => song.performanceSongId),
+    );
   };
 
   const createPerformanceMutation = useMutation({
@@ -353,6 +398,22 @@ export function PerformanceOperationsPage() {
     onError: (error) => setErrorMessage(toApiMessage(error)),
   });
 
+  const createChatRoomsMutation = useMutation({
+    mutationFn: ({
+      performanceId,
+      performanceSongIds,
+    }: {
+      performanceId: number;
+      performanceSongIds: number[];
+    }) => performanceApi.createChatRooms(performanceId, { performanceSongIds }),
+    onSuccess: async (response, variables) => {
+      setSuccessMessage(response.message);
+      closeCreateChatRoomModal();
+      await refreshPerformance(variables.performanceId);
+    },
+    onError: (error) => setErrorMessage(toApiMessage(error)),
+  });
+
   const headerCellClass =
     'border-b border-r border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-700';
   const bodyCellClass = 'border-b border-r border-slate-200 px-4 py-3 text-sm text-slate-700';
@@ -422,6 +483,14 @@ export function PerformanceOperationsPage() {
               <Button
                 variant="secondary"
                 size="sm"
+                onClick={() => setIsCreateChatRoomModalOpen(true)}
+                disabled={!selectedPerformanceId}
+              >
+                채팅방 생성
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={openCreateSessionModal}
                 disabled={!selectedPerformanceId}
               >
@@ -439,6 +508,7 @@ export function PerformanceOperationsPage() {
               description="왼쪽 목록에서 공연을 고르면 곡과 세션이 시트 형태로 표시됩니다."
             />
           ) : (
+            <>
             <div className="overflow-hidden rounded-[24px] border border-slate-200">
               {songs.length === 0 ? (
                 <StatePanel
@@ -500,7 +570,13 @@ export function PerformanceOperationsPage() {
                                 {statusLabel[song.selectionStatus]}
                               </StatusBadge>
                             </td>
-                            <td className={bodyCellClass}>{detail?.chatRoomCreated ? '생성됨' : '미생성'}</td>
+                            <td className={bodyCellClass}>
+                              {detail?.chatRoomCreated
+                                ? '생성됨'
+                                : song.selectionStatus === 'CONFIRMED'
+                                  ? '생성 가능'
+                                  : '대상 아님'}
+                            </td>
                             {columns.map((column) => {
                               const session = detail?.sessions.find(
                                 (item) => item.performanceSessionColumnId === column.performanceSessionColumnId,
@@ -543,9 +619,160 @@ export function PerformanceOperationsPage() {
                 </div>
               )}
             </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+              <Card className="border border-slate-200 bg-white/90">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="section-kicker">Visible Rooms</p>
+                    <h3 className="mt-2 text-xl font-semibold text-slate-900">현재 보이는 채팅방</h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                      확정 곡 상태를 유지하는 방만 노출하고, 후보나 제외로 내려간 곡의 방은 삭제하지 않고 숨김 처리합니다.
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+                    {visibleChatRooms.length}
+                  </span>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {chatRoomsQuery.isLoading ? (
+                    <p className="text-sm text-slate-500">채팅방 목록을 불러오는 중입니다.</p>
+                  ) : visibleChatRooms.length ? (
+                    visibleChatRooms.map((room: ChatRoomSummary) => (
+                      <div key={room.chatRoomId} className="rounded-[22px] border border-slate-200 bg-slate-50/90 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-slate-900">
+                              #{room.orderNo} {room.songTitle}
+                            </p>
+                            <p className="mt-1 text-sm text-slate-500">{room.singer}</p>
+                          </div>
+                          <StatusBadge tone="confirmed">{room.currentRound?.status ?? 'OPEN'}</StatusBadge>
+                        </div>
+                        <p className="mt-3 text-xs text-slate-500">
+                          {room.currentRound
+                            ? `현재 라운드 #${room.currentRound.chatRoundId}`
+                            : '아직 열린 라운드 정보가 없습니다.'}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <StatePanel
+                      title="보이는 채팅방이 없습니다"
+                      description="확정된 곡을 선택해 채팅방을 만들면 이 영역에 바로 표시됩니다."
+                      className="border-0 px-0 py-2"
+                    />
+                  )}
+                </div>
+              </Card>
+
+              <Card className="border border-slate-200 bg-[#14323f] text-white">
+                <p className="section-kicker text-slate-300">Room Targets</p>
+                <h3 className="mt-2 text-xl font-semibold">생성 가능한 확정 곡</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                  아직 채팅방이 없는 확정 곡만 대상으로 잡았습니다. 전체 선택과 부분 선택은 생성 모달에서 할 수 있습니다.
+                </p>
+
+                <div className="mt-4 space-y-2">
+                  {confirmedCreatableSongs.length ? (
+                    confirmedCreatableSongs.map((song) => (
+                      <div key={song.performanceSongId} className="rounded-[18px] bg-white/10 px-4 py-3 ring-1 ring-white/10">
+                        <p className="font-medium">
+                          #{song.orderNo} {song.songTitle}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-300">{song.singer}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="rounded-[18px] bg-white/8 px-4 py-3 text-sm text-slate-300 ring-1 ring-white/10">
+                      지금 바로 만들 수 있는 확정 곡이 없습니다.
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-5">
+                  <Button
+                    className="w-full bg-white text-[#14323f] hover:bg-slate-100"
+                    onClick={() => setIsCreateChatRoomModalOpen(true)}
+                    disabled={!confirmedCreatableSongs.length}
+                  >
+                    채팅방 대상 선택하기
+                  </Button>
+                </div>
+              </Card>
+            </div>
+            </>
           )}
         </Card>
       </div>
+
+      <Modal
+        open={isCreateChatRoomModalOpen}
+        title="채팅방 생성"
+        description="확정된 곡만 선택해서 채팅방을 만들 수 있습니다. 생성된 방은 곡당 1개로 유지되고 첫 라운드도 함께 열립니다."
+        onClose={closeCreateChatRoomModal}
+        footer={
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
+            <Button variant="ghost" onClick={toggleAllChatRoomSongs} disabled={!confirmedCreatableSongs.length}>
+              {selectedChatRoomSongIds.length === confirmedCreatableSongs.length ? '전체 선택 해제' : '전체 선택'}
+            </Button>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={closeCreateChatRoomModal}>
+                취소
+              </Button>
+              <Button
+                disabled={
+                  !selectedPerformanceId ||
+                  !selectedChatRoomSongIds.length ||
+                  createChatRoomsMutation.isPending
+                }
+                onClick={() =>
+                  selectedPerformanceId &&
+                  createChatRoomsMutation.mutate({
+                    performanceId: selectedPerformanceId,
+                    performanceSongIds: selectedChatRoomSongIds,
+                  })
+                }
+              >
+                {createChatRoomsMutation.isPending ? '생성 중...' : `${selectedChatRoomSongIds.length}개 생성`}
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          {!confirmedCreatableSongs.length ? (
+            <StatePanel
+              title="생성 가능한 확정 곡이 없습니다"
+              description="이미 채팅방이 있거나 아직 확정되지 않은 곡만 남아 있습니다."
+              className="border-0 px-0 py-2"
+            />
+          ) : (
+            confirmedCreatableSongs.map((song) => (
+              <label
+                key={song.performanceSongId}
+                className="flex cursor-pointer items-start gap-3 rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedChatRoomSongIds.includes(song.performanceSongId)}
+                  onChange={() => toggleChatRoomSong(song.performanceSongId)}
+                  className="mt-1 h-4 w-4"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold text-slate-900">
+                      #{song.orderNo} {song.songTitle}
+                    </p>
+                    <StatusBadge tone="confirmed">CONFIRMED</StatusBadge>
+                  </div>
+                  <p className="mt-1 text-sm text-slate-500">{song.singer}</p>
+                </div>
+              </label>
+            ))
+          )}
+        </div>
+      </Modal>
 
       <Modal
         open={isCreatePerformanceModalOpen}
