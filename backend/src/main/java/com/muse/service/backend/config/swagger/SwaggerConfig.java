@@ -13,7 +13,7 @@ public class SwaggerConfig {
     public OpenAPI openAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("Muse Service API")
+                        .title("MUSE API")
                         .description("뮤즈 서비스 백엔드 API 문서")
                         .version("v1")
                         .contact(new Contact().name("Muse Team")));
