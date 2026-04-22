@@ -165,7 +165,7 @@ export function FirstVisitIntro() {
         'fixed inset-0 z-[120] overflow-hidden bg-[#12071f] transition duration-[400ms] ease-out',
         phase === 'exit' ? 'opacity-0 blur-[2px]' : 'opacity-100 blur-0',
       )}
-      aria-label="Muse Service intro"
+      aria-label="MUSE intro"
     >
       <div className="intro-screen absolute inset-0" aria-hidden="true" />
       <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
