@@ -15,6 +15,7 @@ import { Card } from '@shared/components/ui/card';
 import { FormField } from '@shared/components/ui/form-field';
 import { InlineNotice } from '@shared/components/ui/inline-notice';
 import { Input } from '@shared/components/ui/input';
+import { Modal } from '@shared/components/ui/modal';
 import { Select } from '@shared/components/ui/select';
 import { StatePanel } from '@shared/components/ui/state-panel';
 import { StatusBadge } from '@shared/components/ui/status-badge';
@@ -50,7 +51,7 @@ const stages: { id: StageId; label: string; helper: string }[] = [
   {
     id: 'catalog',
     label: '곡 등록',
-    helper: '곡 제목, 가수, 악보 유무만 빠르게 쌓고 기본 상태는 모두 후보로 시작합니다.',
+    helper: '곡 제목, 가수, 악보 여부만 빠르게 쌓고 기본 상태는 모두 후보로 시작합니다.',
   },
   {
     id: 'review',
@@ -172,6 +173,7 @@ export function PerformanceGridPage() {
   const [message, setMessage] = useState('');
   const [noticeTone, setNoticeTone] = useState<'success' | 'error'>('success');
   const [selectedPerformanceId, setSelectedPerformanceId] = useState<number | null>(null);
+  const [isCreatePerformanceModalOpen, setIsCreatePerformanceModalOpen] = useState(false);
   const [createPerformanceTitle, setCreatePerformanceTitle] = useState('');
   const [createSongForm, setCreateSongForm] = useState<CreateSongForm>(emptyCreateSongForm);
   const [songDrafts, setSongDrafts] = useState<Record<number, SongDraft>>({});
@@ -265,6 +267,8 @@ export function PerformanceGridPage() {
     }),
     [confirmedSongs.length, songs],
   );
+  const activeStage = stages.find((item) => item.id === stage) ?? stages[0];
+  const selectedPerformanceTitle = performance?.title ?? '공연을 선택해 주세요';
 
   useEffect(() => {
     if (performances.length === 0) {
@@ -326,6 +330,7 @@ export function PerformanceGridPage() {
     mutationFn: performanceApi.createPerformance,
     onSuccess: async (response) => {
       setSuccessMessage(response.message);
+      setIsCreatePerformanceModalOpen(false);
       setCreatePerformanceTitle('');
       await queryClient.invalidateQueries({ queryKey: ['performances'] });
       setSelectedPerformanceId(response.data.performanceId);
@@ -473,12 +478,12 @@ export function PerformanceGridPage() {
   });
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-8">
       {message ? <InlineNotice tone={noticeTone}>{message}</InlineNotice> : null}
 
-      <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
-        <div className="space-y-6">
-          <Card className="space-y-4 bg-[#14323f] text-white">
+      <div className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
+        <div className="space-y-6 xl:sticky xl:top-28 xl:self-start">
+          <Card className="space-y-5 border border-[rgba(20,50,63,0.08)] bg-[#14323f] text-white shadow-[0_22px_40px_rgba(20,50,63,0.18)]">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-300">
@@ -491,7 +496,20 @@ export function PerformanceGridPage() {
               </span>
             </div>
 
-            <div className="space-y-3">
+            <div className="rounded-[24px] bg-white/8 px-4 py-4 ring-1 ring-white/10">
+              <p className="text-sm font-semibold">공연을 선택해 작업을 이어가세요</p>
+              <p className="mt-2 text-sm leading-6 text-slate-300">
+                생성된 공연을 고르면 오른쪽에서 곡 등록, 선곡 심사, 세션 배정을 바로 진행할 수 있습니다.
+              </p>
+              <Button
+                className="mt-4 w-full bg-white text-[#14323f] hover:bg-slate-100"
+                onClick={() => setIsCreatePerformanceModalOpen(true)}
+              >
+                공연 생성하기
+              </Button>
+            </div>
+
+            <div className="space-y-3 xl:max-h-[calc(100vh-20rem)] xl:overflow-y-auto xl:pr-1">
               {performances.length ? (
                 performances.map((item) => (
                   <button
@@ -501,7 +519,7 @@ export function PerformanceGridPage() {
                     className={cn(
                       'w-full rounded-[20px] border px-4 py-4 text-left transition',
                       selectedPerformanceId === item.performanceId
-                        ? 'border-white/70 bg-white text-[#14323f]'
+                        ? 'border-white/70 bg-white text-[#14323f] shadow-[0_12px_26px_rgba(255,255,255,0.12)]'
                         : 'border-white/15 bg-white/8 hover:bg-white/12',
                     )}
                   >
@@ -521,57 +539,41 @@ export function PerformanceGridPage() {
             </div>
           </Card>
 
-          <Card className="space-y-4">
-            <div>
-              <p className="section-kicker">New Performance</p>
-              <h3 className="mt-2 text-xl font-semibold text-slate-900">공연 추가</h3>
-            </div>
-
-            <FormField label="공연 제목" hint="예: 2026 봄 정기공연">
-              <Input
-                value={createPerformanceTitle}
-                onChange={(event) => setCreatePerformanceTitle(event.target.value)}
-                placeholder="공연 제목 입력"
-              />
-            </FormField>
-
-            <Button
-              className="w-full"
-              disabled={!createPerformanceTitle.trim() || createPerformanceMutation.isPending}
-              onClick={() => createPerformanceMutation.mutate({ title: createPerformanceTitle.trim() })}
-            >
-              {createPerformanceMutation.isPending ? '공연 생성 중...' : '공연 생성'}
-            </Button>
-          </Card>
         </div>
 
         <div className="space-y-6">
-          <Card className="space-y-6">
+          <Card className="space-y-6 overflow-hidden border border-[rgba(95,75,182,0.1)] bg-[linear-gradient(180deg,#ffffff_0%,#fbf9ff_100%)] shadow-[0_22px_40px_rgba(52,35,110,0.06)]">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="space-y-2">
                 <p className="section-kicker">Performance Workflow</p>
                 <h2 className="text-3xl font-semibold text-slate-900">
-                  {performance?.title ?? '공연을 선택해 주세요'}
+                  {selectedPerformanceTitle}
                 </h2>
                 <p className="text-sm leading-7 text-slate-600">
                   곡을 먼저 쌓고, 함께 듣고 심사한 뒤, 확정된 곡만 세션을 배정하는 흐름으로 정리했습니다.
                 </p>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-3">
                 {stages.map((item) => (
                   <button
                     key={item.id}
                     type="button"
                     onClick={() => setStage(item.id)}
                     className={cn(
-                      'rounded-[20px] border px-4 py-3 text-left text-sm font-semibold transition',
+                      'rounded-[24px] border px-4 py-4 text-left transition',
                       stage === item.id
                         ? 'border-[#4e3b9d] bg-[#f1ecff] text-[#2f225b] shadow-[0_12px_28px_rgba(78,59,157,0.12)]'
-                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50',
                     )}
                   >
-                    {item.label}
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-semibold">{item.label}</span>
+                      <span className="text-xs font-semibold uppercase tracking-[0.18em] opacity-60">
+                        0{stages.findIndex((stageItem) => stageItem.id === item.id) + 1}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs leading-6 opacity-80">{item.helper}</p>
                   </button>
                 ))}
               </div>
@@ -596,12 +598,12 @@ export function PerformanceGridPage() {
               </div>
             </div>
 
-            <div className="rounded-[24px] border border-[rgba(95,75,182,0.12)] bg-[#faf8ff] px-5 py-4">
+            <div className="rounded-[24px] border border-[rgba(95,75,182,0.12)] bg-[linear-gradient(135deg,#faf8ff_0%,#f4f7ff_100%)] px-5 py-4">
               <p className="text-sm font-semibold text-[#4e3b9d]">
-                {stages.find((item) => item.id === stage)?.label}
+                {activeStage.label}
               </p>
               <p className="mt-2 text-sm leading-7 text-slate-600">
-                {stages.find((item) => item.id === stage)?.helper}
+                {activeStage.helper}
               </p>
             </div>
           </Card>
@@ -614,13 +616,13 @@ export function PerformanceGridPage() {
           ) : null}
 
           {selectedPerformanceId && stage === 'catalog' ? (
-            <div className="space-y-6">
+            <div className="space-y-6 rounded-[32px] border border-[rgba(95,75,182,0.08)] bg-[#fcfbff] p-4 md:p-5">
               <Card className="space-y-5">
                 <div>
                   <p className="section-kicker">Song Intake</p>
                   <h3 className="mt-2 text-2xl font-semibold text-slate-900">곡 등록</h3>
                   <p className="mt-2 text-sm leading-7 text-slate-600">
-                    새 곡은 모두 후보 상태로 들어갑니다. 지금은 기본 정보와 악보 유무만 빠르게 쌓는 단계입니다.
+                    새 곡은 모두 후보 상태로 들어갑니다. 지금은 기본 정보와 악보 여부만 빠르게 쌓는 단계입니다.
                   </p>
                 </div>
 
@@ -654,7 +656,7 @@ export function PerformanceGridPage() {
                     />
                   </FormField>
                   <div className="flex flex-col gap-2">
-                    <span className="field-label">악보 유무</span>
+                    <span className="field-label">악보 여부</span>
                     <button
                       type="button"
                       onClick={() =>
@@ -768,7 +770,7 @@ export function PerformanceGridPage() {
                           </FormField>
 
                           <div className="flex flex-col gap-2">
-                            <span className="field-label">악보 유무</span>
+                            <span className="field-label">악보 여부</span>
                             <button
                               type="button"
                               onClick={() =>
@@ -852,73 +854,75 @@ export function PerformanceGridPage() {
           ) : null}
 
           {selectedPerformanceId && stage === 'review' ? (
-            <Card className="space-y-5">
-              <div>
-                <p className="section-kicker">Review Board</p>
-                <h3 className="mt-2 text-2xl font-semibold text-slate-900">선곡 심사</h3>
-                <p className="mt-2 text-sm leading-7 text-slate-600">
-                  곡을 들으면서 상태만 바로 바꾸면 됩니다. 아직 세션 배정은 하지 않습니다.
-                </p>
-              </div>
+            <div className="rounded-[32px] border border-[rgba(95,75,182,0.08)] bg-[#fcfbff] p-4 md:p-5">
+              <Card className="space-y-5">
+                <div>
+                  <p className="section-kicker">Review Board</p>
+                  <h3 className="mt-2 text-2xl font-semibold text-slate-900">선곡 심사</h3>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">
+                    곡을 들으면서 상태만 바로 바꾸면 됩니다. 아직 세션 배정은 하지 않습니다.
+                  </p>
+                </div>
 
-              {!songs.length ? (
-                <StatePanel
-                  title="심사할 곡이 없습니다"
-                  description="먼저 곡 등록 단계에서 곡을 추가해 주세요."
-                />
-              ) : (
-                <div className="space-y-3">
-                  {songs.map((song) => (
-                    <div
-                      key={song.performanceSongId}
-                      className={cn(
-                        'rounded-[24px] border p-4 transition',
-                        statusMeta[song.selectionStatus].cardClassName,
-                      )}
-                    >
-                      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-lg font-semibold text-slate-900">
-                              #{song.orderNo} {song.songTitle}
-                            </p>
-                            <StatusBadge tone={statusMeta[song.selectionStatus].tone}>
-                              {statusMeta[song.selectionStatus].label}
-                            </StatusBadge>
-                            <StatusBadge tone="neutral">{song.isSheet ? '악보 O' : '악보 X'}</StatusBadge>
+                {!songs.length ? (
+                  <StatePanel
+                    title="심사할 곡이 없습니다"
+                    description="먼저 곡 등록 단계에서 곡을 추가해 주세요."
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    {songs.map((song) => (
+                      <div
+                        key={song.performanceSongId}
+                        className={cn(
+                          'rounded-[24px] border p-4 transition',
+                          statusMeta[song.selectionStatus].cardClassName,
+                        )}
+                      >
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-lg font-semibold text-slate-900">
+                                #{song.orderNo} {song.songTitle}
+                              </p>
+                              <StatusBadge tone={statusMeta[song.selectionStatus].tone}>
+                                {statusMeta[song.selectionStatus].label}
+                              </StatusBadge>
+                              <StatusBadge tone="neutral">{song.isSheet ? '악보 O' : '악보 X'}</StatusBadge>
+                            </div>
+                            <p className="mt-2 text-sm text-slate-600">{song.singer}</p>
                           </div>
-                          <p className="mt-2 text-sm text-slate-600">{song.singer}</p>
-                        </div>
 
-                        <div className="grid gap-2 sm:grid-cols-3">
-                          {(['NOT_BAD', 'CONFIRMED', 'OUT'] as SelectionStatus[]).map((status) => (
-                            <Button
-                              key={status}
-                              size="sm"
-                              variant={song.selectionStatus === status ? 'secondary' : 'ghost'}
-                              disabled={updateSongStatusMutation.isPending}
-                              onClick={() =>
-                                updateSongStatusMutation.mutate({
-                                  performanceId: selectedPerformanceId,
-                                  songId: song.performanceSongId,
-                                  selectionStatus: status,
-                                })
-                              }
-                            >
-                              {statusMeta[status].label}
-                            </Button>
-                          ))}
+                          <div className="grid gap-2 sm:grid-cols-3">
+                            {(['NOT_BAD', 'CONFIRMED', 'OUT'] as SelectionStatus[]).map((status) => (
+                              <Button
+                                key={status}
+                                size="sm"
+                                variant={song.selectionStatus === status ? 'secondary' : 'ghost'}
+                                disabled={updateSongStatusMutation.isPending}
+                                onClick={() =>
+                                  updateSongStatusMutation.mutate({
+                                    performanceId: selectedPerformanceId,
+                                    songId: song.performanceSongId,
+                                    selectionStatus: status,
+                                  })
+                                }
+                              >
+                                {statusMeta[status].label}
+                              </Button>
+                            ))}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </div>
           ) : null}
 
           {selectedPerformanceId && stage === 'assignment' ? (
-            <div className="space-y-6">
+            <div className="space-y-6 rounded-[32px] border border-[rgba(95,75,182,0.08)] bg-[#fcfbff] p-4 md:p-5">
               <Card className="space-y-5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                   <div>
@@ -1106,7 +1110,7 @@ export function PerformanceGridPage() {
                 ) : !columns.length ? (
                   <StatePanel
                     title="세션 컬럼을 먼저 만들어 주세요"
-                    description="확정 곡은 준비됐지만, 배정할 세션 컬럼이 아직 없습니다."
+                    description="확정 곡은 준비됐지만 배정할 세션 컬럼이 아직 없습니다."
                   />
                 ) : (
                   <div className="space-y-4">
@@ -1319,6 +1323,43 @@ export function PerformanceGridPage() {
           ) : null}
         </div>
       </div>
+
+      <Modal
+        open={isCreatePerformanceModalOpen}
+        title="공연 생성"
+        description="새 공연을 만들면 같은 공간에서 곡과 세션, 합주방 흐름을 이어서 관리할 수 있습니다."
+        onClose={() => {
+          setIsCreatePerformanceModalOpen(false);
+          setCreatePerformanceTitle('');
+        }}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setIsCreatePerformanceModalOpen(false);
+                setCreatePerformanceTitle('');
+              }}
+            >
+              취소
+            </Button>
+            <Button
+              disabled={!createPerformanceTitle.trim() || createPerformanceMutation.isPending}
+              onClick={() => createPerformanceMutation.mutate({ title: createPerformanceTitle.trim() })}
+            >
+              {createPerformanceMutation.isPending ? '생성 중...' : '생성하기'}
+            </Button>
+          </div>
+        }
+      >
+        <FormField label="공연 제목" hint="예: 2026 정기공연">
+          <Input
+            value={createPerformanceTitle}
+            onChange={(event) => setCreatePerformanceTitle(event.target.value)}
+            placeholder="공연 제목 입력"
+          />
+        </FormField>
+      </Modal>
     </section>
   );
 }

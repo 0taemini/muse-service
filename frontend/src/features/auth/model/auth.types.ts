@@ -1,9 +1,8 @@
 export interface TokenPayload {
   accessToken: string;
-  refreshToken: string;
   tokenType: string;
   accessTokenExpiresInMs: number;
-  refreshTokenExpiresInMs: number;
+  email: string;
 }
 
 export interface VerificationPayload {

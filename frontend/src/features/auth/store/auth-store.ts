@@ -1,40 +1,37 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { TokenPayload } from '@features/auth/model/auth.types';
 
 interface AuthState {
   accessToken: string;
-  refreshToken: string;
   tokenType: string;
   userEmail: string;
-  setAuth: (payload: TokenPayload, email?: string) => void;
+  isAuthResolved: boolean;
+  setAuth: (payload: TokenPayload) => void;
   clearAuth: () => void;
+  setAuthResolved: (value: boolean) => void;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
+export const useAuthStore = create<AuthState>()((set) => ({
+  accessToken: '',
+  tokenType: 'Bearer',
+  userEmail: '',
+  isAuthResolved: false,
+  setAuth: (payload) =>
+    set({
+      accessToken: payload.accessToken,
+      tokenType: payload.tokenType,
+      userEmail: payload.email,
+      isAuthResolved: true,
+    }),
+  clearAuth: () =>
+    set({
       accessToken: '',
-      refreshToken: '',
       tokenType: 'Bearer',
       userEmail: '',
-      setAuth: (payload, email) =>
-        set({
-          accessToken: payload.accessToken,
-          refreshToken: payload.refreshToken,
-          tokenType: payload.tokenType,
-          userEmail: email ?? '',
-        }),
-      clearAuth: () =>
-        set({
-          accessToken: '',
-          refreshToken: '',
-          tokenType: 'Bearer',
-          userEmail: '',
-        }),
+      isAuthResolved: true,
     }),
-    {
-      name: 'muse-auth',
-    },
-  ),
-);
+  setAuthResolved: (value) =>
+    set({
+      isAuthResolved: value,
+    }),
+}));

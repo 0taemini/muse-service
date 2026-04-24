@@ -10,23 +10,19 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: (payload: LoginFormValues) => authApi.login(payload),
-    onSuccess: (response, variables) => {
-      setAuth(response.data, variables.email);
-      navigate('/me');
+    onSuccess: (response) => {
+      setAuth(response.data);
+      navigate('/');
     },
   });
 }
 
 export function useLogout() {
   const navigate = useNavigate();
-  const refreshToken = useAuthStore((state) => state.refreshToken);
   const clearAuth = useAuthStore((state) => state.clearAuth);
 
   return useMutation({
-    mutationFn: async () => {
-      if (!refreshToken) return null;
-      return authApi.logout(refreshToken);
-    },
+    mutationFn: () => authApi.logout(),
     onSettled: () => {
       clearAuth();
       navigate('/login');
