@@ -219,7 +219,7 @@ export function HomeDashboardPageV2() {
               key={photo.title}
               className={[
                 'group w-full max-w-[340px] border border-[rgba(95,75,182,0.08)] bg-white p-3 shadow-[0_12px_28px_rgba(52,35,110,0.05)] rounded-tl-[28px] rounded-br-[28px] rounded-tr-none rounded-bl-none md:max-w-[360px] xl:max-w-[372px]',
-                index === 1 ? 'md:translate-y-4 md:shadow-[0_18px_36px_rgba(87,58,40,0.18)]' : '',
+                index === 1 ? 'md:translate-y-10 md:shadow-[0_18px_36px_rgba(87,58,40,0.18)]' : '',
               ].join(' ')}
             >
               <div className="relative overflow-hidden rounded-tl-[22px] rounded-br-[22px] rounded-tr-none rounded-bl-none">

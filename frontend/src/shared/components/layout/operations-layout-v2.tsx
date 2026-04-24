@@ -1,3 +1,4 @@
+import { AuthSessionBootstrap } from '@features/auth/components/auth-session-bootstrap';
 import { useMemo } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { FirstVisitIntro } from '@shared/components/layout/first-visit-intro';
@@ -41,6 +42,7 @@ export function OperationsLayoutV2() {
 
   return (
     <div className="relative min-h-screen overflow-x-clip bg-white text-slate-900">
+      <AuthSessionBootstrap />
       <FirstVisitIntro />
 
       <div

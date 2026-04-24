@@ -1,14 +1,13 @@
 package com.muse.service.backend.service.auth;
 
 import com.muse.service.backend.dto.auth.PhoneVerificationRequest;
+import com.muse.service.backend.dto.auth.AuthTokenResult;
 import com.muse.service.backend.dto.auth.FindEmailResponse;
 import com.muse.service.backend.dto.auth.SignupRequest;
 import com.muse.service.backend.dto.auth.PasswordResetRequest;
 import com.muse.service.backend.dto.auth.VerifyCodeRequest;
 import com.muse.service.backend.dto.auth.VerificationTokenResponse;
 import com.muse.service.backend.dto.auth.LoginRequest;
-import com.muse.service.backend.dto.auth.LoginResponse;
-import com.muse.service.backend.dto.auth.RefreshTokenRequest;
 import com.muse.service.backend.dto.user.UserCreateRequest;
 import com.muse.service.backend.dto.user.UserResponse;
 import com.muse.service.backend.entity.AllUser;
@@ -52,7 +51,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional(readOnly = true)
-    public LoginResponse login(LoginRequest request, String clientIp) {
+    public AuthTokenResult login(LoginRequest request, String clientIp) {
         String normalizedEmail = normalizeEmail(request.email());
         String loginFailedCountKey = LOGIN_FAILED_COUNT_PREFIX + normalizedEmail;
         String loginIpFailedCountKey = LOGIN_IP_FAILED_COUNT_PREFIX + normalizeClientIp(clientIp);
@@ -81,12 +80,13 @@ public class AuthServiceImpl implements AuthService {
                     refreshToken,
                     Duration.ofMillis(jwtTokenProvider.getRefreshTokenExpirationMs())
             );
-            return new LoginResponse(
+            return new AuthTokenResult(
                     accessToken,
                     refreshToken,
                     "Bearer",
                     jwtTokenProvider.getAccessTokenExpirationMs(),
-                    jwtTokenProvider.getRefreshTokenExpirationMs()
+                    jwtTokenProvider.getRefreshTokenExpirationMs(),
+                    userDetails.getUsername()
             );
         } catch (AuthenticationException exception) {
             int failedCount = incrementLoginFailedCount(loginFailedCountKey);
@@ -100,22 +100,26 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional(readOnly = true)
-    public LoginResponse reissue(RefreshTokenRequest request) {
-        String refreshToken = request.refreshToken().trim();
-        if (!jwtTokenProvider.validateToken(refreshToken) || !jwtTokenProvider.isRefreshToken(refreshToken)) {
+    public AuthTokenResult reissue(String refreshToken) {
+        String normalizedRefreshToken = refreshToken == null ? "" : refreshToken.trim();
+        if (normalizedRefreshToken.isBlank()) {
+            throw new CustomException(ErrorCode.UNAUTHORIZED);
+        }
+        if (!jwtTokenProvider.validateToken(normalizedRefreshToken)
+                || !jwtTokenProvider.isRefreshToken(normalizedRefreshToken)) {
             throw new CustomException(ErrorCode.UNAUTHORIZED);
         }
 
-        String email = normalizeEmail(jwtTokenProvider.getEmail(refreshToken));
+        String email = normalizeEmail(jwtTokenProvider.getEmail(normalizedRefreshToken));
         String storedRefreshToken = redisTemplate.opsForValue().get(refreshTokenKey(email));
         if (storedRefreshToken == null) {
             throw new CustomException(ErrorCode.UNAUTHORIZED);
         }
-        if (!storedRefreshToken.equals(refreshToken)) {
+        if (!storedRefreshToken.equals(normalizedRefreshToken)) {
             throw new CustomException(ErrorCode.UNAUTHORIZED);
         }
 
-        String role = jwtTokenProvider.getRole(refreshToken);
+        String role = jwtTokenProvider.getRole(normalizedRefreshToken);
         String newAccessToken = jwtTokenProvider.generateAccessToken(email, role);
         String newRefreshToken = jwtTokenProvider.generateRefreshToken(email, role);
         redisTemplate.opsForValue().set(
@@ -124,29 +128,34 @@ public class AuthServiceImpl implements AuthService {
                 Duration.ofMillis(jwtTokenProvider.getRefreshTokenExpirationMs())
         );
 
-        return new LoginResponse(
+        return new AuthTokenResult(
                 newAccessToken,
                 newRefreshToken,
                 "Bearer",
                 jwtTokenProvider.getAccessTokenExpirationMs(),
-                jwtTokenProvider.getRefreshTokenExpirationMs()
+                jwtTokenProvider.getRefreshTokenExpirationMs(),
+                email
         );
     }
 
     @Override
-    public void logout(RefreshTokenRequest request) {
-        String refreshToken = request.refreshToken().trim();
-        if (!jwtTokenProvider.validateToken(refreshToken) || !jwtTokenProvider.isRefreshToken(refreshToken)) {
-            throw new CustomException(ErrorCode.UNAUTHORIZED);
+    public void logout(String refreshToken) {
+        String normalizedRefreshToken = refreshToken == null ? "" : refreshToken.trim();
+        if (normalizedRefreshToken.isBlank()) {
+            return;
+        }
+        if (!jwtTokenProvider.validateToken(normalizedRefreshToken)
+                || !jwtTokenProvider.isRefreshToken(normalizedRefreshToken)) {
+            return;
         }
 
-        String email = normalizeEmail(jwtTokenProvider.getEmail(refreshToken));
+        String email = normalizeEmail(jwtTokenProvider.getEmail(normalizedRefreshToken));
         String storedRefreshToken = redisTemplate.opsForValue().get(refreshTokenKey(email));
         if (storedRefreshToken == null) {
-            throw new CustomException(ErrorCode.UNAUTHORIZED);
+            return;
         }
-        if (!storedRefreshToken.equals(refreshToken)) {
-            throw new CustomException(ErrorCode.UNAUTHORIZED);
+        if (!storedRefreshToken.equals(normalizedRefreshToken)) {
+            return;
         }
         redisTemplate.delete(refreshTokenKey(email));
     }
