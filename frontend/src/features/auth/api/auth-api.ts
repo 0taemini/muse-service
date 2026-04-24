@@ -36,10 +36,10 @@ export const authApi = {
     unwrap<VerificationPayload>(http.post('/api/v1/auth/password/verify-code', payload)),
   resetPassword: (payload: PasswordResetValues) =>
     unwrap(http.post('/api/v1/auth/password/reset', payload)),
-  reissue: (refreshToken: string) =>
-    unwrap<TokenPayload>(http.post('/api/v1/auth/reissue', { refreshToken })),
-  logout: (refreshToken: string) =>
-    unwrap(http.post('/api/v1/auth/logout', { refreshToken })),
+  reissue: () =>
+    unwrap<TokenPayload>(http.post('/api/v1/auth/reissue')),
+  logout: () =>
+    unwrap(http.post('/api/v1/auth/logout')),
 };
 
 export const toApiMessage = (error: unknown) => {

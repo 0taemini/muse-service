@@ -6,7 +6,6 @@
 - `CD`: `main` 브랜치 푸시 또는 수동 실행 시 백엔드/프론트 Docker 이미지를 GHCR로 발행하고 Oracle Cloud 서버에 자동 배포한다.
 - `deploy/docker-compose.prod.yml`: 서버에서 GHCR 이미지를 받아 바로 띄울 수 있는 운영용 예시 파일이다.
 - `deploy/nginx.conf`: 운영 서버에서 `nginx` 컨테이너가 프론트와 백엔드로 라우팅할 리버스 프록시 설정이다.
-- `deploy/nginx.https.conf`: 인증서 발급 후 HTTPS 전환에 사용할 운영용 Nginx 설정이다.
 - `deploy/.env.example`: 서버에서 직접 관리할 `.env` 파일 템플릿이다.
 
 ## 워크플로우 설명
@@ -46,12 +45,10 @@
   - `/api` 요청을 `backend:8080` 으로 프록시한다.
   - SPA 라우팅을 위해 모든 프론트 경로를 `index.html` 로 fallback 한다.
 - `deploy/nginx.conf`
-  - 외부 요청을 받는 운영용 HTTP 리버스 프록시이다.
+  - 외부 요청을 받는 운영용 HTTPS 리버스 프록시이다.
   - `/.well-known/acme-challenge/` 경로를 열어 Let’s Encrypt HTTP-01 인증을 받을 수 있게 한다.
+  - 80 포트는 HTTPS 로 리다이렉트하고, 443 포트에서 TLS 종료를 수행한다.
   - `/api`, `/ws` 는 `backend` 로 보내고, 그 외 경로는 `frontend` 로 보낸다.
-- `deploy/nginx.https.conf`
-  - 인증서 발급 후 사용할 HTTPS 리버스 프록시 설정이다.
-  - 80 포트는 HTTPS 로 리다이렉트하고, 443 포트에서 실제 TLS 종료를 수행한다.
 
 ## Oracle Cloud 서버 배포 방식
 
@@ -125,18 +122,29 @@ docker compose -f docker-compose.prod.yml --env-file .env up -d
 
 운영에서는 외부 포트를 `nginx` 컨테이너만 열고, `frontend` 와 `backend` 는 내부 네트워크에서만 통신한다.
 
+### 5. 서버 시간대 설정
+
+운영 로그는 한국 시간 기준으로 확인할 수 있도록 서버와 컨테이너 시간대를 `Asia/Seoul` 로 맞춘다. 서버에서 한 번 설정한다.
+
+```bash
+sudo timedatectl set-timezone Asia/Seoul
+timedatectl
+```
+
+`deploy/docker-compose.prod.yml` 은 주요 컨테이너에 `TZ=Asia/Seoul` 을 전달하고, 외부 Nginx 컨테이너는 서버의 `/usr/share/zoneinfo/Asia/Seoul` 을 `/etc/localtime` 으로 마운트한다.
+
 ## HTTPS 설정
 
-현재 구성은 인증서 발급 전에도 기존 HTTP 서비스를 유지할 수 있도록 준비되어 있다.
+현재 구성은 `deploy/nginx.conf` 하나로 HTTPS 운영을 수행한다.
 
 ### 1. Oracle 방화벽 열기
 
 - `80` 포트가 이미 열려 있어야 한다.
 - HTTPS 적용 시 `443` 포트도 Oracle Cloud Security List 또는 NSG 에서 열어야 한다.
 
-### 2. 인증서 발급용 현재 상태 배포
+### 2. HTTPS 구성 배포
 
-먼저 현재의 `deploy/nginx.conf` 로 HTTP 서비스를 유지한 채 배포한다.
+`deploy/nginx.conf` 를 서버에 배포한 뒤 Nginx 를 실행한다.
 
 ```bash
 cd /home/opc/apps/muse-service
@@ -157,14 +165,14 @@ docker compose --env-file .env -f docker-compose.prod.yml run --rm certbot \
   --no-eff-email
 ```
 
-### 4. HTTPS 설정으로 전환
+### 4. Nginx 설정 반영
 
-인증서 발급이 끝나면 HTTPS 설정 파일로 교체하고 Nginx 를 재시작한다.
+인증서 발급 또는 갱신 후 Nginx 설정을 검사하고 다시 로드한다.
 
 ```bash
 cd /home/opc/apps/muse-service
-cp nginx.https.conf nginx.conf
-docker compose --env-file .env -f docker-compose.prod.yml up -d nginx
+docker compose --env-file .env -f docker-compose.prod.yml exec nginx nginx -t
+docker compose --env-file .env -f docker-compose.prod.yml exec nginx nginx -s reload
 ```
 
 ### 5. 갱신
