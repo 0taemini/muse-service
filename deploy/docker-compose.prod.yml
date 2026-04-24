@@ -6,6 +6,7 @@ services:
     networks:
       - muse-network
     environment:
+      TZ: Asia/Seoul
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -26,6 +27,8 @@ services:
     networks:
       - muse-network
     command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+    environment:
+      TZ: Asia/Seoul
     volumes:
       - redis-data:/data
     ports:
@@ -48,7 +51,9 @@ services:
       redis:
         condition: service_healthy
     environment:
+      TZ: Asia/Seoul
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Seoul
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -70,6 +75,8 @@ services:
     image: ${FRONTEND_IMAGE}
     container_name: muse-frontend
     restart: unless-stopped
+    environment:
+      TZ: Asia/Seoul
     networks:
       - muse-network
     depends_on:
@@ -90,6 +97,8 @@ services:
     image: nginx:1.27-alpine
     container_name: muse-nginx
     restart: unless-stopped
+    environment:
+      TZ: Asia/Seoul
     networks:
       - muse-network
     depends_on:
@@ -99,6 +108,7 @@ services:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - ./certbot/conf:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
+      - /usr/share/zoneinfo/Asia/Seoul:/etc/localtime:ro
     ports:
       - "80:80"
       - "443:443"
