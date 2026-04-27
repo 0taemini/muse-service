@@ -19,12 +19,20 @@ export interface PerformanceSongSummary {
   selectionStatus: SelectionStatus;
 }
 
+export interface PerformanceMember {
+  userId: number;
+  name: string;
+  cohort: number;
+  nickname: string;
+}
+
 export interface PerformanceDetail {
   performanceId: number;
   title: string;
   songCount: number;
   createdAt: string;
   songs: PerformanceSongSummary[];
+  members: PerformanceMember[];
 }
 
 export interface PerformanceSongSession {
@@ -81,6 +89,10 @@ export interface CreatePerformancePayload {
   title: string;
 }
 
+export interface CreatePerformanceMemberPayload {
+  userId: number;
+}
+
 export interface CreatePerformanceSongPayload {
   songTitle: string;
   singer: string;
@@ -129,6 +141,10 @@ export const performanceApi = {
   getPerformances: () => unwrap<PerformanceSummary[]>(http.get('/api/v1/performances')),
   getPerformance: (performanceId: number) =>
     unwrap<PerformanceDetail>(http.get(`/api/v1/performances/${performanceId}`)),
+  createPerformanceMember: (performanceId: number, payload: CreatePerformanceMemberPayload) =>
+    unwrap<PerformanceMember>(http.post(`/api/v1/performances/${performanceId}/members`, payload)),
+  deletePerformanceMember: (performanceId: number, memberUserId: number) =>
+    unwrap<void>(http.delete(`/api/v1/performances/${performanceId}/members/${memberUserId}`)),
   getPerformanceSessionColumns: (performanceId: number) =>
     unwrap<PerformanceSessionColumn[]>(http.get(`/api/v1/performances/${performanceId}/session-columns`)),
   createPerformanceSessionColumn: (performanceId: number, payload: UpsertPerformanceSessionColumnPayload) =>

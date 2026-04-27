@@ -151,6 +151,15 @@ export function MuseFloatingHeader() {
 
   const navigateFromMenu = (to: string) => {
     closeMenus();
+    if (to === '/performances') {
+      navigate(to, {
+        state: {
+          resetPerformanceListAt: Date.now(),
+        },
+      });
+      return;
+    }
+
     navigate(to);
   };
 
