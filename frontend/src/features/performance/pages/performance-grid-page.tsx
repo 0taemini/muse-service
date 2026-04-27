@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 import { toApiMessage } from '@features/auth/api/auth-api';
 import {
   performanceApi,
   type ChatRoomSummary,
+  type PerformanceMember,
   type PerformanceSessionColumn,
   type PerformanceSongDetail,
   type PerformanceSongSummary,
@@ -28,6 +30,7 @@ type SongDraft = {
   singer: string;
   orderNo: string;
   isSheet: boolean;
+  selectionStatus: SelectionStatus;
 };
 
 type CreateSongForm = SongDraft;
@@ -70,12 +73,13 @@ const emptyCreateSongForm: CreateSongForm = {
   singer: '',
   orderNo: '',
   isSheet: false,
+  selectionStatus: 'NOT_BAD',
 };
 
 const emptyColumnForm: ColumnForm = {
   sessionName: '',
   displayOrder: '',
-  isRequired: true,
+  isRequired: false,
 };
 
 const statusMeta: Record<
@@ -108,6 +112,7 @@ const toSongDraft = (song: PerformanceSongSummary): SongDraft => ({
   singer: song.singer,
   orderNo: String(song.orderNo),
   isSheet: song.isSheet,
+  selectionStatus: song.selectionStatus,
 });
 
 const toColumnDraft = (column: PerformanceSessionColumn): ColumnDraft => ({
@@ -136,6 +141,10 @@ function isSameColumnDrafts(left: ColumnDraft[], right: ColumnDraft[]) {
 
 function isSameNumberArray(left: number[], right: number[]) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function formatUserAssignmentLabel(user: { cohort: number; name: string; nickname: string }) {
+  return `${user.cohort}기 ${user.name}(${user.nickname})`;
 }
 
 function buildAssignmentDraft(
@@ -169,11 +178,15 @@ const EMPTY_ARRAY: never[] = [];
 
 export function PerformanceGridPage() {
   const queryClient = useQueryClient();
+  const location = useLocation();
   const [stage, setStage] = useState<StageId>('catalog');
   const [message, setMessage] = useState('');
   const [noticeTone, setNoticeTone] = useState<'success' | 'error'>('success');
   const [selectedPerformanceId, setSelectedPerformanceId] = useState<number | null>(null);
   const [isCreatePerformanceModalOpen, setIsCreatePerformanceModalOpen] = useState(false);
+  const [isCreateSongModalOpen, setIsCreateSongModalOpen] = useState(false);
+  const [isCreateColumnModalOpen, setIsCreateColumnModalOpen] = useState(false);
+  const [isMemberManageModalOpen, setIsMemberManageModalOpen] = useState(false);
   const [createPerformanceTitle, setCreatePerformanceTitle] = useState('');
   const [createSongForm, setCreateSongForm] = useState<CreateSongForm>(emptyCreateSongForm);
   const [songDrafts, setSongDrafts] = useState<Record<number, SongDraft>>({});
@@ -181,6 +194,9 @@ export function PerformanceGridPage() {
   const [columnDrafts, setColumnDrafts] = useState<ColumnDraft[]>([]);
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<number, Record<number, string>>>({});
   const [selectedChatRoomSongIds, setSelectedChatRoomSongIds] = useState<number[]>([]);
+  const [songPendingDelete, setSongPendingDelete] = useState<PerformanceSongSummary | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [selectedMemberUserId, setSelectedMemberUserId] = useState('');
 
   const performancesQuery = useQuery({
     queryKey: ['performances'],
@@ -220,6 +236,10 @@ export function PerformanceGridPage() {
     () => chatRoomsQuery.data?.data ?? EMPTY_ARRAY,
     [chatRoomsQuery.data],
   );
+  const performanceMembers = useMemo(
+    () => performance?.members ?? EMPTY_ARRAY,
+    [performance],
+  );
   const songs = useMemo(
     () => [...(performance?.songs ?? [])].sort((a, b) => a.orderNo - b.orderNo),
     [performance],
@@ -257,6 +277,17 @@ export function PerformanceGridPage() {
       }),
     [confirmedSongs, songDetailsById],
   );
+  const assignmentGridTemplate = useMemo(
+    () =>
+      [
+        '72px',
+        'minmax(180px,1.05fr)',
+        'minmax(132px,0.75fr)',
+        ...columns.map(() => 'minmax(126px,0.85fr)'),
+        '92px',
+      ].join(' '),
+    [columns],
+  );
 
   const summaryCount = useMemo(
     () => ({
@@ -267,22 +298,15 @@ export function PerformanceGridPage() {
     }),
     [confirmedSongs.length, songs],
   );
+  const availableUsersForMembers = useMemo(
+    () =>
+      users.filter(
+        (user) => !performanceMembers.some((member) => member.userId === user.userId),
+      ),
+    [performanceMembers, users],
+  );
   const activeStage = stages.find((item) => item.id === stage) ?? stages[0];
   const selectedPerformanceTitle = performance?.title ?? '공연을 선택해 주세요';
-
-  useEffect(() => {
-    if (performances.length === 0) {
-      setSelectedPerformanceId(null);
-      return;
-    }
-
-    if (
-      selectedPerformanceId === null ||
-      !performances.some((item) => item.performanceId === selectedPerformanceId)
-    ) {
-      setSelectedPerformanceId(performances[0].performanceId);
-    }
-  }, [performances, selectedPerformanceId]);
 
   useEffect(() => {
     const nextDrafts = Object.fromEntries(songs.map((song) => [song.performanceSongId, toSongDraft(song)]));
@@ -308,9 +332,27 @@ export function PerformanceGridPage() {
     setSelectedChatRoomSongIds((current) => (isSameNumberArray(current, nextSongIds) ? current : nextSongIds));
   }, [creatableConfirmedSongs]);
 
+  useEffect(() => {
+    const shouldResetToList =
+      location.pathname === '/performances' &&
+      Boolean(
+        location.state &&
+          typeof location.state === 'object' &&
+          'resetPerformanceListAt' in location.state,
+      );
+
+    if (!shouldResetToList) {
+      return;
+    }
+
+    setSelectedPerformanceId(null);
+    setStage('catalog');
+    setIsCreateSongModalOpen(false);
+  }, [location.pathname, location.state]);
+
   const setSuccessMessage = (nextMessage: string) => {
-    setNoticeTone('success');
-    setMessage(nextMessage);
+    void nextMessage;
+    setMessage('');
   };
 
   const setErrorMessage = (nextMessage: string) => {
@@ -348,8 +390,38 @@ export function PerformanceGridPage() {
     }) => performanceApi.createSong(performanceId, payload),
     onSuccess: async (response) => {
       setSuccessMessage(response.message);
+      setIsCreateSongModalOpen(false);
       setCreateSongForm(emptyCreateSongForm);
       await invalidatePerformance(response.data.performanceId);
+    },
+    onError: (error) => setErrorMessage(toApiMessage(error)),
+  });
+
+  const createPerformanceMemberMutation = useMutation({
+    mutationFn: ({
+      performanceId,
+      userId,
+    }: {
+      performanceId: number;
+      userId: number;
+    }) => performanceApi.createPerformanceMember(performanceId, { userId }),
+    onSuccess: async (_, variables) => {
+      setSelectedMemberUserId('');
+      await invalidatePerformance(variables.performanceId);
+    },
+    onError: (error) => setErrorMessage(toApiMessage(error)),
+  });
+
+  const deletePerformanceMemberMutation = useMutation({
+    mutationFn: ({
+      performanceId,
+      memberUserId,
+    }: {
+      performanceId: number;
+      memberUserId: number;
+    }) => performanceApi.deletePerformanceMember(performanceId, memberUserId),
+    onSuccess: async (_, variables) => {
+      await invalidatePerformance(variables.performanceId);
     },
     onError: (error) => setErrorMessage(toApiMessage(error)),
   });
@@ -365,7 +437,6 @@ export function PerformanceGridPage() {
       payload: Parameters<typeof performanceApi.updateSong>[2];
     }) => performanceApi.updateSong(performanceId, songId, payload),
     onSuccess: async (response) => {
-      setSuccessMessage(response.message);
       await invalidatePerformance(response.data.performanceId);
     },
     onError: (error) => setErrorMessage(toApiMessage(error)),
@@ -382,7 +453,6 @@ export function PerformanceGridPage() {
       selectionStatus: SelectionStatus;
     }) => performanceApi.updateSongStatus(performanceId, songId, { selectionStatus }),
     onSuccess: async (response) => {
-      setSuccessMessage(response.message);
       await invalidatePerformance(response.data.performanceId);
     },
     onError: (error) => setErrorMessage(toApiMessage(error)),
@@ -413,9 +483,9 @@ export function PerformanceGridPage() {
     }) => performanceApi.createPerformanceSessionColumn(performanceId, payload),
     onSuccess: async (_, variables) => {
       setSuccessMessage('세션 컬럼을 추가했습니다.');
+      setIsCreateColumnModalOpen(false);
       setColumnForm({
         ...emptyColumnForm,
-        displayOrder: String(columns.length + 2),
       });
       await invalidatePerformance(variables.performanceId);
     },
@@ -433,7 +503,6 @@ export function PerformanceGridPage() {
       payload: Parameters<typeof performanceApi.updatePerformanceSessionColumn>[2];
     }) => performanceApi.updatePerformanceSessionColumn(performanceId, columnId, payload),
     onSuccess: async (_, variables) => {
-      setSuccessMessage('세션 컬럼을 저장했습니다.');
       await invalidatePerformance(variables.performanceId);
     },
     onError: (error) => setErrorMessage(toApiMessage(error)),
@@ -456,7 +525,6 @@ export function PerformanceGridPage() {
         })),
       }),
     onSuccess: async (response) => {
-      setSuccessMessage(response.message);
       await invalidatePerformance(response.data.performanceId);
     },
     onError: (error) => setErrorMessage(toApiMessage(error)),
@@ -477,248 +545,360 @@ export function PerformanceGridPage() {
     onError: (error) => setErrorMessage(toApiMessage(error)),
   });
 
+  const persistSongDraft = async (
+    song: PerformanceSongSummary,
+    draftOverride?: SongDraft,
+  ) => {
+    if (!selectedPerformanceId) {
+      return;
+    }
+
+    const currentDraft = draftOverride ?? songDrafts[song.performanceSongId] ?? toSongDraft(song);
+    const normalizedSongTitle = currentDraft.songTitle.trim();
+    const normalizedSinger = currentDraft.singer.trim();
+    const parsedOrderNo = Number(currentDraft.orderNo);
+    const normalizedOrderNo =
+      Number.isFinite(parsedOrderNo) && parsedOrderNo > 0 ? parsedOrderNo : song.orderNo;
+
+    if (!normalizedSongTitle || !normalizedSinger) {
+      setSongDrafts((current) => ({
+        ...current,
+        [song.performanceSongId]: toSongDraft(song),
+      }));
+      return;
+    }
+
+    const normalizedDraft: SongDraft = {
+      songTitle: normalizedSongTitle,
+      singer: normalizedSinger,
+      orderNo: String(normalizedOrderNo),
+      isSheet: currentDraft.isSheet,
+      selectionStatus: currentDraft.selectionStatus,
+    };
+    const detail = songDetailsById.get(song.performanceSongId);
+    const isLockedSong = detail?.chatRoomCreated === true;
+
+    setSongDrafts((current) => ({
+      ...current,
+      [song.performanceSongId]: normalizedDraft,
+    }));
+
+    if (!isLockedSong) {
+      await updateSongMutation.mutateAsync({
+        performanceId: selectedPerformanceId,
+        songId: song.performanceSongId,
+        payload: {
+          songTitle: normalizedDraft.songTitle,
+          singer: normalizedDraft.singer,
+          isSheet: normalizedDraft.isSheet,
+          orderNo: normalizedOrderNo,
+        },
+      });
+    }
+
+    if (normalizedDraft.selectionStatus !== song.selectionStatus) {
+      await updateSongStatusMutation.mutateAsync({
+        performanceId: selectedPerformanceId,
+        songId: song.performanceSongId,
+        selectionStatus: normalizedDraft.selectionStatus,
+      });
+    }
+  };
+
+  const persistColumnDraft = async (column: ColumnDraft) => {
+    if (!selectedPerformanceId) {
+      return;
+    }
+
+    const normalizedSessionName = column.sessionName.trim();
+    if (!normalizedSessionName) {
+      return;
+    }
+
+    const parsedDisplayOrder = Number(column.displayOrder);
+    const normalizedDisplayOrder =
+      Number.isFinite(parsedDisplayOrder) && parsedDisplayOrder > 0 ? parsedDisplayOrder : 1;
+
+    const normalizedColumn: ColumnDraft = {
+      ...column,
+      sessionName: normalizedSessionName,
+      displayOrder: String(normalizedDisplayOrder),
+    };
+
+    setColumnDrafts((current) =>
+      current.map((item) =>
+        item.performanceSessionColumnId === column.performanceSessionColumnId ? normalizedColumn : item,
+      ),
+    );
+
+    await updateColumnMutation.mutateAsync({
+      performanceId: selectedPerformanceId,
+      columnId: column.performanceSessionColumnId,
+      payload: {
+        sessionName: normalizedColumn.sessionName,
+        displayOrder: normalizedDisplayOrder,
+        isRequired: normalizedColumn.isRequired,
+        baseSessionTypeId: normalizedColumn.baseSessionTypeId,
+      },
+    });
+  };
+
+  const persistAssignmentDraft = async (songId: number, nextDraft: Record<number, string>) => {
+    if (!selectedPerformanceId) {
+      return;
+    }
+
+    setAssignmentDrafts((current) => ({
+      ...current,
+      [songId]: nextDraft,
+    }));
+
+    await updateAssignmentsMutation.mutateAsync({
+      performanceId: selectedPerformanceId,
+      songId,
+      sessions: columns.map((column) => ({
+        performanceSessionColumnId: column.performanceSessionColumnId,
+        assignedUserId: nextDraft[column.performanceSessionColumnId] ?? '',
+      })),
+    });
+  };
+
+  if (selectedPerformanceId === null) {
+    return (
+      <section className="space-y-8">
+        {message && noticeTone === 'error' ? <InlineNotice tone={noticeTone}>{message}</InlineNotice> : null}
+
+        <div className="space-y-3">
+          <p className="section-kicker">Performance Archive</p>
+          <h1 className="text-3xl font-semibold text-slate-900 md:text-4xl">공연을 선택해 관리하세요</h1>
+          <p className="max-w-2xl text-sm leading-7 text-slate-600 md:text-base">
+            먼저 공연을 고른 뒤 곡 등록, 선곡 심사, 세션 배정, 합주방 생성까지 이어서 작업할 수 있습니다.
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <button
+            type="button"
+            onClick={() => setIsCreatePerformanceModalOpen(true)}
+            className="flex min-h-[220px] flex-col items-center justify-center rounded-[28px] border border-dashed border-[rgba(95,75,182,0.28)] bg-[linear-gradient(180deg,#fcfbff_0%,#f6f2ff_100%)] px-6 text-center transition hover:border-[rgba(95,75,182,0.4)] hover:shadow-[0_16px_30px_rgba(52,35,110,0.08)]"
+          >
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-3xl font-light text-[#5a43ba] shadow-[0_10px_24px_rgba(90,67,186,0.14)]">
+              +
+            </span>
+            <p className="mt-5 text-lg font-semibold text-slate-900">공연 추가하기</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">새 공연을 만들고 바로 관리 화면으로 이동합니다.</p>
+          </button>
+
+          {performances.length ? (
+            performances.map((performance) => (
+              <button
+                key={performance.performanceId}
+                type="button"
+                onClick={() => setSelectedPerformanceId(performance.performanceId)}
+                className="rounded-[28px] border border-slate-200 bg-white px-6 py-6 text-left shadow-[0_14px_30px_rgba(15,23,42,0.04)] transition hover:-translate-y-1 hover:border-[rgba(95,75,182,0.2)] hover:shadow-[0_18px_36px_rgba(52,35,110,0.10)]"
+              >
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Performance</p>
+                <h2 className="mt-4 line-clamp-2 text-2xl font-semibold text-slate-900">{performance.title}</h2>
+                <div className="mt-8 flex items-center justify-between text-sm text-slate-500">
+                  <span>{performance.songCount}곡</span>
+                  <span>열기</span>
+                </div>
+              </button>
+            ))
+          ) : (
+            <Card className="sm:col-span-2 xl:col-span-3">
+              <StatePanel
+                title="아직 공연이 없습니다"
+                description="왼쪽 첫 카드에서 공연을 추가하면 관리할 공연 카드가 여기에 생깁니다."
+                className="border-0 p-0 shadow-none"
+              />
+            </Card>
+          )}
+        </div>
+
+        <Modal
+          open={isCreatePerformanceModalOpen}
+          title="공연 생성"
+          description="새 공연을 만들면 바로 해당 공연의 관리 화면으로 이동합니다."
+          onClose={() => {
+            setIsCreatePerformanceModalOpen(false);
+            setCreatePerformanceTitle('');
+          }}
+          footer={
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setIsCreatePerformanceModalOpen(false);
+                  setCreatePerformanceTitle('');
+                }}
+              >
+                취소
+              </Button>
+              <Button
+                disabled={!createPerformanceTitle.trim() || createPerformanceMutation.isPending}
+                onClick={() => createPerformanceMutation.mutate({ title: createPerformanceTitle.trim() })}
+              >
+                {createPerformanceMutation.isPending ? '생성 중...' : '생성하기'}
+              </Button>
+            </div>
+          }
+        >
+          <FormField label="공연 제목" hint="예: 2026 정기공연">
+            <Input
+              value={createPerformanceTitle}
+              onChange={(event) => setCreatePerformanceTitle(event.target.value)}
+              placeholder="공연 제목 입력"
+            />
+          </FormField>
+        </Modal>
+      </section>
+    );
+  }
+
   return (
     <section className="space-y-8">
-      {message ? <InlineNotice tone={noticeTone}>{message}</InlineNotice> : null}
+      {message && noticeTone === 'error' ? <InlineNotice tone={noticeTone}>{message}</InlineNotice> : null}
 
-      <div className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
-        <div className="space-y-6 xl:sticky xl:top-28 xl:self-start">
-          <Card className="space-y-5 border border-[rgba(20,50,63,0.08)] bg-[#14323f] text-white shadow-[0_22px_40px_rgba(20,50,63,0.18)]">
+      <div className="relative">
+        {isSidebarOpen ? (
+          <button
+            type="button"
+            aria-label="사이드바 닫기 배경"
+            className="fixed inset-0 z-30 bg-slate-950/8 xl:bg-transparent"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        ) : null}
+
+        {!isSidebarOpen ? (
+          <button
+            type="button"
+            onClick={() => setIsSidebarOpen(true)}
+            aria-label="사이드바 열기"
+            className="fixed left-4 top-24 z-40 inline-flex h-12 w-12 items-center justify-center rounded-full border border-[#4e3b9d] bg-[#4e3b9d] text-xl font-semibold text-white shadow-[0_18px_36px_rgba(78,59,157,0.32)] ring-4 ring-white transition hover:bg-[#3f2f84] xl:absolute xl:left-0 xl:top-6"
+          >
+            ›
+          </button>
+        ) : null}
+
+        <div
+          className={cn(
+            'fixed left-4 top-24 bottom-4 z-40 w-[292px] max-w-[calc(100vw-2rem)] transition duration-300 xl:absolute xl:left-0 xl:top-0 xl:bottom-auto',
+            isSidebarOpen
+              ? 'translate-x-0 opacity-100'
+              : '-translate-x-[calc(100%+1.5rem)] pointer-events-none opacity-0',
+          )}
+        >
+          <Card className="flex h-full flex-col gap-5 overflow-hidden border border-[rgba(95,75,182,0.1)] bg-white text-slate-900 shadow-[0_18px_36px_rgba(52,35,110,0.08)] xl:h-auto">
             <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-300">
-                  Performances
-                </p>
-                <h2 className="mt-2 text-2xl font-semibold">공연 관리</h2>
-              </div>
-              <span className="rounded-full bg-white/10 px-3 py-1 text-xs ring-1 ring-white/15">
-                {performances.length}
-              </span>
-            </div>
-
-            <div className="rounded-[24px] bg-white/8 px-4 py-4 ring-1 ring-white/10">
-              <p className="text-sm font-semibold">공연을 선택해 작업을 이어가세요</p>
-              <p className="mt-2 text-sm leading-6 text-slate-300">
-                생성된 공연을 고르면 오른쪽에서 곡 등록, 선곡 심사, 세션 배정을 바로 진행할 수 있습니다.
-              </p>
-              <Button
-                className="mt-4 w-full bg-white text-[#14323f] hover:bg-slate-100"
-                onClick={() => setIsCreatePerformanceModalOpen(true)}
-              >
-                공연 생성하기
+              <h2 className="text-2xl font-semibold text-slate-900">{selectedPerformanceTitle}</h2>
+              <Button variant="ghost" className="shrink-0" onClick={() => setIsMemberManageModalOpen(true)}>
+                멤버 관리
               </Button>
             </div>
 
-            <div className="space-y-3 xl:max-h-[calc(100vh-20rem)] xl:overflow-y-auto xl:pr-1">
-              {performances.length ? (
-                performances.map((item) => (
-                  <button
-                    key={item.performanceId}
-                    type="button"
-                    onClick={() => setSelectedPerformanceId(item.performanceId)}
-                    className={cn(
-                      'w-full rounded-[20px] border px-4 py-4 text-left transition',
-                      selectedPerformanceId === item.performanceId
-                        ? 'border-white/70 bg-white text-[#14323f] shadow-[0_12px_26px_rgba(255,255,255,0.12)]'
-                        : 'border-white/15 bg-white/8 hover:bg-white/12',
-                    )}
-                  >
-                    <p className="font-semibold">{item.title}</p>
-                    <p className="mt-2 text-xs uppercase tracking-[0.18em] opacity-70">
-                      songs {item.songCount}
-                    </p>
-                  </button>
-                ))
+            <div className="flex-1 space-y-3 overflow-hidden">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">곡 목록</h3>
+              </div>
+
+              {songs.length ? (
+                <div className="space-y-2 xl:max-h-[calc(100vh-25rem)] xl:overflow-y-auto xl:pr-1">
+                  {songs.map((song) => (
+                    <button
+                      key={song.performanceSongId}
+                      type="button"
+                      onClick={() => setStage('catalog')}
+                      className="flex w-full items-center justify-between rounded-[18px] border border-slate-200 bg-slate-50/70 px-4 py-3 text-left transition hover:border-[rgba(95,75,182,0.18)] hover:bg-[#f8f5ff]"
+                    >
+                      <span className="truncate text-sm font-semibold text-slate-800">
+                        #{song.orderNo} {song.songTitle}
+                      </span>
+                      <span className="text-xs font-semibold text-slate-400">열기</span>
+                    </button>
+                  ))}
+                </div>
               ) : (
                 <StatePanel
-                  title="아직 공연이 없습니다"
-                  description="공연을 먼저 만들면 아래 단계 흐름을 바로 이어서 사용할 수 있습니다."
-                  tone="inverse"
+                  title="등록된 곡이 없습니다"
+                  description="왼쪽 위 곡 추가 버튼으로 첫 곡을 바로 등록해 보세요."
+                />
+              )}
+            </div>
+
+            <div className="space-y-3 overflow-hidden">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">채팅방</h3>
+              </div>
+
+              {chatRoomsQuery.isLoading ? (
+                <p className="rounded-[18px] border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-500">
+                  채팅방을 불러오는 중입니다.
+                </p>
+              ) : visibleChatRooms.length ? (
+                <div className="space-y-2 xl:max-h-[calc(100vh-18rem)] xl:overflow-y-auto xl:pr-1">
+                  {visibleChatRooms.map((room) => (
+                    <div
+                      key={room.chatRoomId}
+                      className="rounded-[22px] border border-slate-200 bg-white px-4 py-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-base font-semibold text-slate-900">
+                            #{room.orderNo} {room.songTitle}
+                          </p>
+                          <p className="mt-1 truncate text-sm text-slate-500">{room.singer}</p>
+                        </div>
+                        <StatusBadge tone="confirmed">
+                          {room.currentRound?.status ?? 'OPEN'}
+                        </StatusBadge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <StatePanel
+                  title="보이는 채팅방이 없습니다"
+                  description="확정 곡으로 합주방을 만들면 여기서 바로 확인할 수 있습니다."
                 />
               )}
             </div>
           </Card>
-
         </div>
 
         <div className="space-y-6">
-          <Card className="space-y-6 overflow-hidden border border-[rgba(95,75,182,0.1)] bg-[linear-gradient(180deg,#ffffff_0%,#fbf9ff_100%)] shadow-[0_22px_40px_rgba(52,35,110,0.06)]">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div className="space-y-2">
-                <p className="section-kicker">Performance Workflow</p>
-                <h2 className="text-3xl font-semibold text-slate-900">
-                  {selectedPerformanceTitle}
-                </h2>
-                <p className="text-sm leading-7 text-slate-600">
-                  곡을 먼저 쌓고, 함께 듣고 심사한 뒤, 확정된 곡만 세션을 배정하는 흐름으로 정리했습니다.
-                </p>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-3">
-                {stages.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setStage(item.id)}
-                    className={cn(
-                      'rounded-[24px] border px-4 py-4 text-left transition',
-                      stage === item.id
-                        ? 'border-[#4e3b9d] bg-[#f1ecff] text-[#2f225b] shadow-[0_12px_28px_rgba(78,59,157,0.12)]'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50',
-                    )}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm font-semibold">{item.label}</span>
-                      <span className="text-xs font-semibold uppercase tracking-[0.18em] opacity-60">
-                        0{stages.findIndex((stageItem) => stageItem.id === item.id) + 1}
-                      </span>
-                    </div>
-                    <p className="mt-2 text-xs leading-6 opacity-80">{item.helper}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-4">
-              <div className="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">전체 곡</p>
-                <p className="mt-3 text-2xl font-semibold text-slate-900">{summaryCount.total}</p>
-              </div>
-              <div className="rounded-[22px] border border-amber-200 bg-amber-50/70 px-4 py-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">후보</p>
-                <p className="mt-3 text-2xl font-semibold text-amber-800">{summaryCount.candidate}</p>
-              </div>
-              <div className="rounded-[22px] border border-emerald-200 bg-emerald-50/70 px-4 py-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">확정</p>
-                <p className="mt-3 text-2xl font-semibold text-emerald-800">{summaryCount.confirmed}</p>
-              </div>
-              <div className="rounded-[22px] border border-rose-200 bg-rose-50/70 px-4 py-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-rose-700">제외</p>
-                <p className="mt-3 text-2xl font-semibold text-rose-800">{summaryCount.out}</p>
-              </div>
-            </div>
-
-            <div className="rounded-[24px] border border-[rgba(95,75,182,0.12)] bg-[linear-gradient(135deg,#faf8ff_0%,#f4f7ff_100%)] px-5 py-4">
-              <p className="text-sm font-semibold text-[#4e3b9d]">
-                {activeStage.label}
-              </p>
-              <p className="mt-2 text-sm leading-7 text-slate-600">
-                {activeStage.helper}
-              </p>
-            </div>
-          </Card>
-
-          {!selectedPerformanceId ? (
-            <StatePanel
-              title="선택된 공연이 없습니다"
-              description="왼쪽 목록에서 공연을 고르면 오른쪽 작업 영역이 열립니다."
-            />
-          ) : null}
-
           {selectedPerformanceId && stage === 'catalog' ? (
-            <div className="space-y-6 rounded-[32px] border border-[rgba(95,75,182,0.08)] bg-[#fcfbff] p-4 md:p-5">
+            <div>
               <Card className="space-y-5">
-                <div>
-                  <p className="section-kicker">Song Intake</p>
-                  <h3 className="mt-2 text-2xl font-semibold text-slate-900">곡 등록</h3>
-                  <p className="mt-2 text-sm leading-7 text-slate-600">
-                    새 곡은 모두 후보 상태로 들어갑니다. 지금은 기본 정보와 악보 여부만 빠르게 쌓는 단계입니다.
-                  </p>
-                </div>
-
-                <div className="grid gap-4 rounded-[24px] border border-slate-200 bg-slate-50/80 p-4 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_100px_110px_auto]">
-                  <FormField label="곡 제목">
-                    <Input
-                      value={createSongForm.songTitle}
-                      onChange={(event) =>
-                        setCreateSongForm((current) => ({ ...current, songTitle: event.target.value }))
-                      }
-                      placeholder="곡 제목 입력"
-                    />
-                  </FormField>
-                  <FormField label="가수">
-                    <Input
-                      value={createSongForm.singer}
-                      onChange={(event) =>
-                        setCreateSongForm((current) => ({ ...current, singer: event.target.value }))
-                      }
-                      placeholder="가수명 입력"
-                    />
-                  </FormField>
-                  <FormField label="순서">
-                    <Input
-                      type="number"
-                      value={createSongForm.orderNo}
-                      onChange={(event) =>
-                        setCreateSongForm((current) => ({ ...current, orderNo: event.target.value }))
-                      }
-                      placeholder="예: 3"
-                    />
-                  </FormField>
-                  <div className="flex flex-col gap-2">
-                    <span className="field-label">악보 여부</span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setCreateSongForm((current) => ({ ...current, isSheet: !current.isSheet }))
-                      }
-                      className={cn(
-                        'min-h-12 rounded-2xl border px-4 text-sm font-semibold transition',
-                        createSongForm.isSheet
-                          ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                          : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50',
-                      )}
-                    >
-                      {createSongForm.isSheet ? 'O' : 'X'}
-                    </button>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="section-kicker">Song List</p>
+                    <h3 className="mt-2 text-2xl font-semibold text-slate-900">등록된 곡</h3>
                   </div>
-                  <div className="flex items-end">
-                    <Button
-                      className="w-full"
-                      disabled={
-                        !createSongForm.songTitle.trim() ||
-                        !createSongForm.singer.trim() ||
-                        createSongMutation.isPending
-                      }
-                      onClick={() =>
-                        createSongMutation.mutate({
-                          performanceId: selectedPerformanceId,
-                          payload: {
-                            songTitle: createSongForm.songTitle.trim(),
-                            singer: createSongForm.singer.trim(),
-                            isSheet: createSongForm.isSheet,
-                            orderNo: createSongForm.orderNo ? Number(createSongForm.orderNo) : undefined,
-                            selectionStatus: 'NOT_BAD',
-                          },
-                        })
-                      }
-                    >
-                      {createSongMutation.isPending ? '추가 중...' : '곡 추가'}
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" onClick={() => setStage('assignment')}>
+                      세션 배정
                     </Button>
+                    <Button onClick={() => setIsCreateSongModalOpen(true)}>곡 추가</Button>
                   </div>
-                </div>
-              </Card>
-
-              <Card className="space-y-5">
-                <div>
-                  <p className="section-kicker">Song List</p>
-                  <h3 className="mt-2 text-2xl font-semibold text-slate-900">등록된 곡</h3>
                 </div>
 
                 {!songs.length ? (
                   <StatePanel
                     title="등록된 곡이 없습니다"
-                    description="위 입력줄에서 첫 곡을 추가하면 바로 목록에 쌓입니다."
+                    description="오른쪽 상단 곡 추가 버튼으로 첫 곡을 등록해 보세요."
                   />
                 ) : (
                   <div className="space-y-3">
                     {songs.map((song) => {
                       const draft = songDrafts[song.performanceSongId] ?? toSongDraft(song);
+                      const detail = songDetailsById.get(song.performanceSongId);
+                      const isLockedSong = detail?.chatRoomCreated === true;
 
                       return (
                         <div
                           key={song.performanceSongId}
-                          className="grid gap-3 rounded-[24px] border border-slate-200 bg-white p-4 md:grid-cols-[84px_minmax(0,1.2fr)_minmax(0,1fr)_110px_120px_auto_auto]"
+                          className="grid gap-3 rounded-[24px] border border-slate-200 bg-white p-4 md:grid-cols-[84px_minmax(0,1.2fr)_minmax(0,1fr)_110px_176px_auto]"
                         >
                           <FormField label="순서">
                             <Input
@@ -734,6 +914,8 @@ export function PerformanceGridPage() {
                                   },
                                 }))
                               }
+                              onBlur={() => void persistSongDraft(song)}
+                              disabled={isLockedSong}
                             />
                           </FormField>
 
@@ -750,6 +932,8 @@ export function PerformanceGridPage() {
                                   },
                                 }))
                               }
+                              onBlur={() => void persistSongDraft(song)}
+                              disabled={isLockedSong}
                             />
                           </FormField>
 
@@ -766,6 +950,8 @@ export function PerformanceGridPage() {
                                   },
                                 }))
                               }
+                              onBlur={() => void persistSongDraft(song)}
+                              disabled={isLockedSong}
                             />
                           </FormField>
 
@@ -773,17 +959,24 @@ export function PerformanceGridPage() {
                             <span className="field-label">악보 여부</span>
                             <button
                               type="button"
-                              onClick={() =>
+                              disabled={isLockedSong}
+                              onClick={() => {
+                                const nextDraft = {
+                                  ...draft,
+                                  isSheet: !draft.isSheet,
+                                };
+
                                 setSongDrafts((current) => ({
                                   ...current,
                                   [song.performanceSongId]: {
-                                    ...draft,
-                                    isSheet: !draft.isSheet,
+                                    ...nextDraft,
                                   },
-                                }))
-                              }
+                                }));
+                                void persistSongDraft(song, nextDraft);
+                              }}
                               className={cn(
                                 'h-10 rounded-xl border text-sm font-semibold transition',
+                                isLockedSong && 'cursor-not-allowed opacity-55',
                                 draft.isSheet
                                   ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
                                   : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100',
@@ -795,37 +988,40 @@ export function PerformanceGridPage() {
 
                           <div className="flex flex-col gap-2">
                             <span className="field-label">현재 상태</span>
-                            <div className="flex h-10 items-center">
-                              <StatusBadge tone={statusMeta[song.selectionStatus].tone}>
-                                {statusMeta[song.selectionStatus].label}
-                              </StatusBadge>
-                            </div>
-                          </div>
+                            <div className="grid h-10 grid-cols-3 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+                              {(['NOT_BAD', 'CONFIRMED', 'OUT'] as SelectionStatus[]).map((status) => (
+                                <button
+                                  key={status}
+                                  type="button"
+                                  onClick={() => {
+                                    const nextDraft = {
+                                      ...draft,
+                                      selectionStatus: status,
+                                    };
 
-                          <div className="flex items-end">
-                            <Button
-                              size="sm"
-                              className="w-full"
-                              disabled={
-                                !draft.songTitle.trim() ||
-                                !draft.singer.trim() ||
-                                updateSongMutation.isPending
-                              }
-                              onClick={() =>
-                                updateSongMutation.mutate({
-                                  performanceId: selectedPerformanceId,
-                                  songId: song.performanceSongId,
-                                  payload: {
-                                    songTitle: draft.songTitle.trim(),
-                                    singer: draft.singer.trim(),
-                                    isSheet: draft.isSheet,
-                                    orderNo: Number(draft.orderNo || 0),
-                                  },
-                                })
-                              }
-                            >
-                              저장
-                            </Button>
+                                    setSongDrafts((current) => ({
+                                      ...current,
+                                      [song.performanceSongId]: {
+                                        ...nextDraft,
+                                      },
+                                    }));
+                                    void persistSongDraft(song, nextDraft);
+                                  }}
+                                  className={cn(
+                                    'rounded-lg text-xs font-semibold transition',
+                                    draft.selectionStatus === status
+                                      ? status === 'CONFIRMED'
+                                        ? 'bg-emerald-100 text-emerald-700'
+                                        : status === 'OUT'
+                                          ? 'bg-rose-100 text-rose-700'
+                                          : 'bg-amber-100 text-amber-700'
+                                      : 'text-slate-500 hover:bg-white',
+                                  )}
+                                >
+                                  {statusMeta[status].label}
+                                </button>
+                              ))}
+                            </div>
                           </div>
 
                           <div className="flex items-end">
@@ -833,13 +1029,8 @@ export function PerformanceGridPage() {
                               size="sm"
                               variant="ghost"
                               className="w-full text-rose-700 hover:bg-rose-50"
-                              disabled={deleteSongMutation.isPending}
-                              onClick={() =>
-                                deleteSongMutation.mutate({
-                                  performanceId: selectedPerformanceId,
-                                  songId: song.performanceSongId,
-                                })
-                              }
+                              disabled={deleteSongMutation.isPending || isLockedSong}
+                              onClick={() => setSongPendingDelete(song)}
                             >
                               삭제
                             </Button>
@@ -871,50 +1062,55 @@ export function PerformanceGridPage() {
                   />
                 ) : (
                   <div className="space-y-3">
-                    {songs.map((song) => (
-                      <div
-                        key={song.performanceSongId}
-                        className={cn(
-                          'rounded-[24px] border p-4 transition',
-                          statusMeta[song.selectionStatus].cardClassName,
-                        )}
-                      >
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="text-lg font-semibold text-slate-900">
-                                #{song.orderNo} {song.songTitle}
-                              </p>
-                              <StatusBadge tone={statusMeta[song.selectionStatus].tone}>
-                                {statusMeta[song.selectionStatus].label}
-                              </StatusBadge>
-                              <StatusBadge tone="neutral">{song.isSheet ? '악보 O' : '악보 X'}</StatusBadge>
-                            </div>
-                            <p className="mt-2 text-sm text-slate-600">{song.singer}</p>
-                          </div>
+                    {songs.map((song) => {
+                      const detail = songDetailsById.get(song.performanceSongId);
+                      const isLockedSong = detail?.chatRoomCreated === true;
 
-                          <div className="grid gap-2 sm:grid-cols-3">
-                            {(['NOT_BAD', 'CONFIRMED', 'OUT'] as SelectionStatus[]).map((status) => (
-                              <Button
-                                key={status}
-                                size="sm"
-                                variant={song.selectionStatus === status ? 'secondary' : 'ghost'}
-                                disabled={updateSongStatusMutation.isPending}
-                                onClick={() =>
-                                  updateSongStatusMutation.mutate({
-                                    performanceId: selectedPerformanceId,
-                                    songId: song.performanceSongId,
-                                    selectionStatus: status,
-                                  })
-                                }
-                              >
-                                {statusMeta[status].label}
-                              </Button>
-                            ))}
+                      return (
+                        <div
+                          key={song.performanceSongId}
+                          className={cn(
+                            'rounded-[24px] border p-4 transition',
+                            statusMeta[song.selectionStatus].cardClassName,
+                          )}
+                        >
+                          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-lg font-semibold text-slate-900">
+                                  #{song.orderNo} {song.songTitle}
+                                </p>
+                                <StatusBadge tone={statusMeta[song.selectionStatus].tone}>
+                                  {statusMeta[song.selectionStatus].label}
+                                </StatusBadge>
+                                <StatusBadge tone="neutral">{song.isSheet ? '악보 O' : '악보 X'}</StatusBadge>
+                              </div>
+                              <p className="mt-2 text-sm text-slate-600">{song.singer}</p>
+                            </div>
+
+                            <div className="grid gap-2 sm:grid-cols-3">
+                              {(['NOT_BAD', 'CONFIRMED', 'OUT'] as SelectionStatus[]).map((status) => (
+                                <Button
+                                  key={status}
+                                  size="sm"
+                                  variant={song.selectionStatus === status ? 'secondary' : 'ghost'}
+                                  disabled={updateSongStatusMutation.isPending}
+                                  onClick={() =>
+                                    updateSongStatusMutation.mutate({
+                                      performanceId: selectedPerformanceId,
+                                      songId: song.performanceSongId,
+                                      selectionStatus: status,
+                                    })
+                                  }
+                                >
+                                  {statusMeta[status].label}
+                                </Button>
+                              ))}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </Card>
@@ -926,180 +1122,19 @@ export function PerformanceGridPage() {
               <Card className="space-y-5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                   <div>
-                    <p className="section-kicker">Session Columns</p>
-                    <h3 className="mt-2 text-2xl font-semibold text-slate-900">세션 컬럼 관리</h3>
-                    <p className="mt-2 text-sm leading-7 text-slate-600">
-                      세션 배정은 확정된 곡에만 적용되지만, 컬럼 구조는 공연 전체에서 공유됩니다.
-                    </p>
-                  </div>
-                  <StatusBadge tone="neutral">{columns.length}개 컬럼</StatusBadge>
-                </div>
-
-                <div className="grid gap-4 rounded-[24px] border border-slate-200 bg-slate-50/80 p-4 md:grid-cols-[minmax(0,1fr)_120px_120px_auto]">
-                  <FormField label="세션명">
-                    <Input
-                      value={columnForm.sessionName}
-                      onChange={(event) =>
-                        setColumnForm((current) => ({ ...current, sessionName: event.target.value }))
-                      }
-                      placeholder="예: 코러스"
-                    />
-                  </FormField>
-
-                  <FormField label="순서">
-                    <Input
-                      type="number"
-                      value={columnForm.displayOrder}
-                      onChange={(event) =>
-                        setColumnForm((current) => ({ ...current, displayOrder: event.target.value }))
-                      }
-                      placeholder={String(columns.length + 1)}
-                    />
-                  </FormField>
-
-                  <div className="flex flex-col gap-2">
-                    <span className="field-label">필수 여부</span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setColumnForm((current) => ({ ...current, isRequired: !current.isRequired }))
-                      }
-                      className={cn(
-                        'min-h-12 rounded-2xl border px-4 text-sm font-semibold transition',
-                        columnForm.isRequired
-                          ? 'border-[#4e3b9d] bg-[#f1ecff] text-[#2f225b]'
-                          : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50',
-                      )}
-                    >
-                      {columnForm.isRequired ? '필수' : '선택'}
-                    </button>
-                  </div>
-
-                  <div className="flex items-end">
-                    <Button
-                      className="w-full"
-                      disabled={!columnForm.sessionName.trim() || createColumnMutation.isPending}
-                      onClick={() =>
-                        createColumnMutation.mutate({
-                          performanceId: selectedPerformanceId,
-                          payload: {
-                            sessionName: columnForm.sessionName.trim(),
-                            displayOrder: columnForm.displayOrder
-                              ? Number(columnForm.displayOrder)
-                              : undefined,
-                            isRequired: columnForm.isRequired,
-                            baseSessionTypeId: null,
-                          },
-                        })
-                      }
-                    >
-                      {createColumnMutation.isPending ? '추가 중...' : '컬럼 추가'}
-                    </Button>
-                  </div>
-                </div>
-
-                {columns.length ? (
-                  <div className="space-y-3">
-                    {columnDrafts.map((column, index) => (
-                      <div
-                        key={column.performanceSessionColumnId}
-                        className="grid gap-3 rounded-[24px] border border-slate-200 bg-white p-4 md:grid-cols-[minmax(0,1fr)_120px_120px_auto]"
-                      >
-                        <FormField label="세션명">
-                          <Input
-                            value={column.sessionName}
-                            onChange={(event) =>
-                              setColumnDrafts((current) =>
-                                current.map((item, itemIndex) =>
-                                  itemIndex === index ? { ...item, sessionName: event.target.value } : item,
-                                ),
-                              )
-                            }
-                          />
-                        </FormField>
-
-                        <FormField label="순서">
-                          <Input
-                            type="number"
-                            value={column.displayOrder}
-                            onChange={(event) =>
-                              setColumnDrafts((current) =>
-                                current.map((item, itemIndex) =>
-                                  itemIndex === index ? { ...item, displayOrder: event.target.value } : item,
-                                ),
-                              )
-                            }
-                          />
-                        </FormField>
-
-                        <div className="flex flex-col gap-2">
-                          <span className="field-label">필수 여부</span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setColumnDrafts((current) =>
-                                current.map((item, itemIndex) =>
-                                  itemIndex === index ? { ...item, isRequired: !item.isRequired } : item,
-                                ),
-                              )
-                            }
-                            className={cn(
-                              'min-h-12 rounded-2xl border px-4 text-sm font-semibold transition',
-                              column.isRequired
-                                ? 'border-[#4e3b9d] bg-[#f1ecff] text-[#2f225b]'
-                                : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-white',
-                            )}
-                          >
-                            {column.isRequired ? '필수' : '선택'}
-                          </button>
-                        </div>
-
-                        <div className="flex items-end">
-                          <Button
-                            className="w-full"
-                            disabled={!column.sessionName.trim() || updateColumnMutation.isPending}
-                            onClick={() =>
-                              updateColumnMutation.mutate({
-                                performanceId: selectedPerformanceId,
-                                columnId: column.performanceSessionColumnId,
-                                payload: {
-                                  sessionName: column.sessionName.trim(),
-                                  displayOrder: Number(column.displayOrder || 0),
-                                  isRequired: column.isRequired,
-                                  baseSessionTypeId: column.baseSessionTypeId,
-                                },
-                              })
-                            }
-                          >
-                            저장
-                          </Button>
-                        </div>
-
-                        <div className="md:col-span-4 flex items-center justify-between text-xs text-slate-500">
-                          <span>Column #{column.performanceSessionColumnId}</span>
-                          <span>{column.sessionSource === 'DEFAULT' ? '기본 컬럼' : '사용자 컬럼'}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <StatePanel
-                    title="세션 컬럼이 없습니다"
-                    description="먼저 드럼, 보컬, 기타 같은 세션 컬럼을 추가해 주세요."
-                  />
-                )}
-              </Card>
-
-              <Card className="space-y-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                  <div>
-                    <p className="section-kicker">Confirmed Songs</p>
+                    <p className="section-kicker">Assignment Table</p>
                     <h3 className="mt-2 text-2xl font-semibold text-slate-900">확정 곡 세션 배정</h3>
                     <p className="mt-2 text-sm leading-7 text-slate-600">
-                      여기에는 확정 곡만 보입니다. 후보와 제외 곡은 세션 배정 대상에서 빠집니다.
+                      확정 곡만 표에 나타납니다. 담당자를 바꾸면 바로 반영됩니다.
                     </p>
                   </div>
-                  <StatusBadge tone="confirmed">{confirmedSongs.length}곡</StatusBadge>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" onClick={() => setStage('catalog')}>
+                      곡 목록
+                    </Button>
+                    <Button onClick={() => setIsCreateColumnModalOpen(true)}>세션 추가</Button>
+                    <StatusBadge tone="confirmed">{confirmedSongs.length}곡</StatusBadge>
+                  </div>
                 </div>
 
                 {!confirmedSongs.length ? (
@@ -1107,93 +1142,91 @@ export function PerformanceGridPage() {
                     title="확정된 곡이 없습니다"
                     description="선곡 심사 탭에서 상태를 확정으로 바꾸면 여기로 자동으로 들어옵니다."
                   />
+                ) : !performanceMembers.length ? (
+                  <StatePanel
+                    title="공연 멤버를 먼저 등록해 주세요"
+                    description="멤버 관리를 열어서 이 공연에 참여하는 사람만 먼저 등록하면 배정이 훨씬 편해집니다."
+                  />
                 ) : !columns.length ? (
                   <StatePanel
                     title="세션 컬럼을 먼저 만들어 주세요"
                     description="확정 곡은 준비됐지만 배정할 세션 컬럼이 아직 없습니다."
                   />
                 ) : (
-                  <div className="space-y-4">
-                    {confirmedSongs.map((song) => {
-                      const detail = songDetailsById.get(song.performanceSongId);
-                      const draft = assignmentDrafts[song.performanceSongId] ?? {};
+                  <div className="overflow-x-auto">
+                    <div className="min-w-max space-y-3">
+                      <div
+                        className="grid gap-3 rounded-[20px] border border-slate-200 bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-600"
+                        style={{ gridTemplateColumns: assignmentGridTemplate }}
+                      >
+                        <span>순서</span>
+                        <span>곡 제목</span>
+                        <span>가수</span>
+                        {columns.map((column) => (
+                          <span key={`assignment-head-${column.performanceSessionColumnId}`}>
+                            {column.sessionName}
+                          </span>
+                        ))}
+                        <span>채팅방</span>
+                      </div>
 
-                      return (
-                        <div
-                          key={song.performanceSongId}
-                          className="rounded-[24px] border border-emerald-200 bg-emerald-50/50 p-4"
-                        >
-                          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                            <div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-lg font-semibold text-slate-900">
-                                  #{song.orderNo} {song.songTitle}
-                                </p>
-                                <StatusBadge tone="confirmed">확정</StatusBadge>
-                                <StatusBadge tone="neutral">{song.isSheet ? '악보 O' : '악보 X'}</StatusBadge>
-                                <StatusBadge tone="neutral">
-                                  {detail?.chatRoomCreated ? '채팅방 생성됨' : '채팅방 미생성'}
-                                </StatusBadge>
-                              </div>
-                              <p className="mt-2 text-sm text-slate-600">{song.singer}</p>
+                      {confirmedSongs.map((song) => {
+                        const detail = songDetailsById.get(song.performanceSongId);
+                        const draft = assignmentDrafts[song.performanceSongId] ?? {};
+
+                        return (
+                          <div
+                            key={song.performanceSongId}
+                            className="grid gap-3 rounded-[22px] border border-emerald-200 bg-white px-4 py-4"
+                            style={{ gridTemplateColumns: assignmentGridTemplate }}
+                          >
+                            <div className="flex items-center">
+                              <span className="rounded-full bg-emerald-50 px-2.5 py-1.5 text-sm font-semibold text-emerald-700">
+                                {song.orderNo}
+                              </span>
                             </div>
 
-                            <Button
-                              size="sm"
-                              disabled={updateAssignmentsMutation.isPending}
-                              onClick={() =>
-                                updateAssignmentsMutation.mutate({
-                                  performanceId: selectedPerformanceId,
-                                  songId: song.performanceSongId,
-                                  sessions: columns.map((column) => ({
-                                    performanceSessionColumnId: column.performanceSessionColumnId,
-                                    assignedUserId:
-                                      draft[column.performanceSessionColumnId] ?? '',
-                                  })),
-                                })
-                              }
-                            >
-                              저장
-                            </Button>
-                          </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-[15px] font-semibold text-slate-900">{song.songTitle}</p>
+                              <p className="mt-1 text-sm text-slate-500">{song.isSheet ? '악보 O' : '악보 X'}</p>
+                            </div>
 
-                          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                            <div className="flex items-center truncate text-[15px] text-slate-700">{song.singer}</div>
+
                             {columns.map((column) => (
-                              <div
+                              <Select
                                 key={`${song.performanceSongId}-${column.performanceSessionColumnId}`}
-                                className="rounded-[20px] border border-white/80 bg-white/80 p-4"
+                                value={draft[column.performanceSessionColumnId] ?? ''}
+                                className="h-10 rounded-xl border-slate-300 bg-slate-50 pl-2.5 pr-8 text-[13px] font-medium text-slate-800"
+                                onChange={(event) => {
+                                  const nextDraft = {
+                                    ...draft,
+                                    [column.performanceSessionColumnId]: event.target.value,
+                                  };
+
+                                  void persistAssignmentDraft(song.performanceSongId, nextDraft);
+                                }}
                               >
-                                <div className="mb-3 flex items-center justify-between gap-3">
-                                  <p className="font-semibold text-slate-900">{column.sessionName}</p>
-                                  <StatusBadge tone="neutral">
-                                    {column.isRequired ? '필수' : '선택'}
-                                  </StatusBadge>
-                                </div>
-                                <Select
-                                  value={draft[column.performanceSessionColumnId] ?? ''}
-                                  onChange={(event) =>
-                                    setAssignmentDrafts((current) => ({
-                                      ...current,
-                                      [song.performanceSongId]: {
-                                        ...(current[song.performanceSongId] ?? {}),
-                                        [column.performanceSessionColumnId]: event.target.value,
-                                      },
-                                    }))
-                                  }
-                                >
-                                  <option value="">미배정</option>
-                                  {users.map((user) => (
-                                    <option key={user.userId} value={user.userId}>
-                                      {user.name} #{user.userId}
-                                    </option>
-                                  ))}
-                                </Select>
-                              </div>
+                                <option value="">
+                                  {column.isRequired ? '필수 세션 선택' : '미배정'}
+                                </option>
+                                {performanceMembers.map((user: PerformanceMember) => (
+                                  <option key={user.userId} value={user.userId}>
+                                    {formatUserAssignmentLabel(user)}
+                                  </option>
+                                ))}
+                              </Select>
                             ))}
+
+                            <div className="flex items-center">
+                              <StatusBadge tone={detail?.chatRoomCreated ? 'confirmed' : 'neutral'}>
+                                {detail?.chatRoomCreated ? '생성됨' : '없음'}
+                              </StatusBadge>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </Card>
@@ -1323,6 +1356,284 @@ export function PerformanceGridPage() {
           ) : null}
         </div>
       </div>
+
+      <Modal
+        open={isMemberManageModalOpen}
+        title="공연 멤버 관리"
+        onClose={() => {
+          setIsMemberManageModalOpen(false);
+          setSelectedMemberUserId('');
+        }}
+        footer={
+          <div className="flex justify-end">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setIsMemberManageModalOpen(false);
+                setSelectedMemberUserId('');
+              }}
+            >
+              닫기
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-5">
+          <div className="flex flex-col gap-3 md:flex-row">
+            <Select
+              value={selectedMemberUserId}
+              onChange={(event) => setSelectedMemberUserId(event.target.value)}
+              className="h-11 flex-1 rounded-2xl"
+            >
+              <option value="">추가할 멤버 선택</option>
+              {availableUsersForMembers.map((user) => (
+                <option key={user.userId} value={user.userId}>
+                  {formatUserAssignmentLabel(user)}
+                </option>
+              ))}
+            </Select>
+            <Button
+              className="md:min-w-[108px]"
+              disabled={!selectedPerformanceId || !selectedMemberUserId || createPerformanceMemberMutation.isPending}
+              onClick={() => {
+                if (!selectedPerformanceId || !selectedMemberUserId) {
+                  return;
+                }
+
+                createPerformanceMemberMutation.mutate({
+                  performanceId: selectedPerformanceId,
+                  userId: Number(selectedMemberUserId),
+                });
+              }}
+            >
+              {createPerformanceMemberMutation.isPending ? '추가 중...' : '멤버 추가'}
+            </Button>
+          </div>
+
+          {performanceMembers.length ? (
+            <div className="space-y-2">
+              {performanceMembers.map((member: PerformanceMember) => (
+                <div
+                  key={member.userId}
+                  className="flex items-center justify-between gap-3 rounded-[18px] border border-slate-200 bg-slate-50/80 px-4 py-3"
+                >
+                  <span className="min-w-0 truncate text-sm font-medium text-slate-800">
+                    {formatUserAssignmentLabel(member)}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    className="shrink-0 text-rose-600 hover:text-rose-700"
+                    disabled={!selectedPerformanceId || deletePerformanceMemberMutation.isPending}
+                    onClick={() => {
+                      if (!selectedPerformanceId) {
+                        return;
+                      }
+
+                      deletePerformanceMemberMutation.mutate({
+                        performanceId: selectedPerformanceId,
+                        memberUserId: member.userId,
+                      });
+                    }}
+                  >
+                    삭제
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-[18px] border border-dashed border-slate-200 bg-slate-50/80 px-6 py-10 text-center text-xl font-semibold text-slate-800">
+              등록된 공연 멤버가 없습니다
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      <Modal
+        open={songPendingDelete !== null}
+        title="곡 삭제"
+        description={
+          songPendingDelete
+            ? `"${songPendingDelete.songTitle}" 곡을 삭제할까요? 삭제하면 되돌릴 수 없습니다.`
+            : undefined
+        }
+        onClose={() => setSongPendingDelete(null)}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setSongPendingDelete(null)}>
+              취소
+            </Button>
+            <Button
+              className="bg-rose-600 hover:bg-rose-700"
+              disabled={!songPendingDelete || deleteSongMutation.isPending || !selectedPerformanceId}
+              onClick={() => {
+                if (!songPendingDelete || !selectedPerformanceId) {
+                  return;
+                }
+
+                deleteSongMutation.mutate(
+                  {
+                    performanceId: selectedPerformanceId,
+                    songId: songPendingDelete.performanceSongId,
+                  },
+                  {
+                    onSuccess: async (_, variables) => {
+                      setSongPendingDelete(null);
+                      setSuccessMessage('곡을 삭제했습니다.');
+                      await invalidatePerformance(variables.performanceId);
+                    },
+                  },
+                );
+              }}
+            >
+              {deleteSongMutation.isPending ? '삭제 중...' : '삭제하기'}
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm leading-7 text-slate-600">
+          곡 정보와 연결된 현재 목록이 함께 정리됩니다. 정말 삭제할 때만 진행해 주세요.
+        </p>
+      </Modal>
+
+      <Modal
+        open={isCreateColumnModalOpen}
+        title="세션 추가"
+        description="새 세션을 추가하면 확정 곡 배정 표에 바로 반영됩니다."
+        onClose={() => {
+          setIsCreateColumnModalOpen(false);
+          setColumnForm(emptyColumnForm);
+        }}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setIsCreateColumnModalOpen(false);
+                setColumnForm(emptyColumnForm);
+              }}
+            >
+              취소
+            </Button>
+            <Button
+              disabled={!columnForm.sessionName.trim() || createColumnMutation.isPending}
+              onClick={() =>
+                createColumnMutation.mutate({
+                  performanceId: selectedPerformanceId!,
+                  payload: {
+                    sessionName: columnForm.sessionName.trim(),
+                    displayOrder: undefined,
+                    isRequired: false,
+                    baseSessionTypeId: null,
+                  },
+                })
+              }
+            >
+              {createColumnMutation.isPending ? '추가 중...' : '세션 추가'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="grid gap-4">
+          <FormField label="세션명">
+            <Input
+              value={columnForm.sessionName}
+              onChange={(event) =>
+                setColumnForm((current) => ({ ...current, sessionName: event.target.value }))
+              }
+              placeholder="예: 코러스"
+            />
+          </FormField>
+        </div>
+      </Modal>
+
+      <Modal
+        open={isCreateSongModalOpen}
+        title="곡 추가"
+        description="현재 선택한 공연에 곡을 바로 등록합니다."
+        onClose={() => {
+          setIsCreateSongModalOpen(false);
+          setCreateSongForm(emptyCreateSongForm);
+        }}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setIsCreateSongModalOpen(false);
+                setCreateSongForm(emptyCreateSongForm);
+              }}
+            >
+              취소
+            </Button>
+            <Button
+              disabled={
+                !selectedPerformanceId ||
+                !createSongForm.songTitle.trim() ||
+                !createSongForm.singer.trim() ||
+                createSongMutation.isPending
+              }
+              onClick={() => {
+                if (!selectedPerformanceId) return;
+
+                createSongMutation.mutate({
+                  performanceId: selectedPerformanceId,
+                  payload: {
+                    songTitle: createSongForm.songTitle.trim(),
+                    singer: createSongForm.singer.trim(),
+                    isSheet: createSongForm.isSheet,
+                    orderNo: createSongForm.orderNo ? Number(createSongForm.orderNo) : undefined,
+                    selectionStatus: 'NOT_BAD',
+                  },
+                });
+              }}
+            >
+              {createSongMutation.isPending ? '추가 중...' : '곡 추가'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <FormField label="곡 제목">
+            <Input
+              value={createSongForm.songTitle}
+              onChange={(event) =>
+                setCreateSongForm((current) => ({ ...current, songTitle: event.target.value }))
+              }
+              placeholder="곡 제목 입력"
+            />
+          </FormField>
+          <FormField label="가수">
+            <Input
+              value={createSongForm.singer}
+              onChange={(event) => setCreateSongForm((current) => ({ ...current, singer: event.target.value }))}
+              placeholder="가수명 입력"
+            />
+          </FormField>
+          <FormField label="순서">
+            <Input
+              type="number"
+              value={createSongForm.orderNo}
+              onChange={(event) => setCreateSongForm((current) => ({ ...current, orderNo: event.target.value }))}
+              placeholder="예: 3"
+            />
+          </FormField>
+          <div className="flex flex-col gap-2">
+            <span className="field-label">악보 여부</span>
+            <button
+              type="button"
+              onClick={() => setCreateSongForm((current) => ({ ...current, isSheet: !current.isSheet }))}
+              className={cn(
+                'min-h-11 rounded-2xl border px-4 text-sm font-semibold transition',
+                createSongForm.isSheet
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                  : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50',
+              )}
+            >
+              {createSongForm.isSheet ? 'O' : 'X'}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         open={isCreatePerformanceModalOpen}

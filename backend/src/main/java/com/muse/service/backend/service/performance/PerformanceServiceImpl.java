@@ -2,11 +2,13 @@ package com.muse.service.backend.service.performance;
 
 import com.muse.service.backend.dto.performance.PerformanceCreateRequest;
 import com.muse.service.backend.dto.performance.PerformanceDetailResponse;
+import com.muse.service.backend.dto.performance.PerformanceMemberResponse;
 import com.muse.service.backend.dto.performance.PerformanceSongResponse;
 import com.muse.service.backend.dto.performance.PerformanceSummaryResponse;
 import com.muse.service.backend.entity.Performance;
 import com.muse.service.backend.global.exception.CustomException;
 import com.muse.service.backend.global.exception.ErrorCode;
+import com.muse.service.backend.repository.PerformanceMemberRepository;
 import com.muse.service.backend.repository.PerformanceRepository;
 import com.muse.service.backend.repository.PerformanceSongRepository;
 import java.util.Collections;
@@ -22,6 +24,7 @@ public class PerformanceServiceImpl implements PerformanceService {
 
     private final PerformanceRepository performanceRepository;
     private final PerformanceSongRepository performanceSongRepository;
+    private final PerformanceMemberRepository performanceMemberRepository;
 
     @Override
     @Transactional
@@ -32,7 +35,7 @@ public class PerformanceServiceImpl implements PerformanceService {
                         .build()
         );
 
-        return PerformanceDetailResponse.from(performance, Collections.emptyList());
+        return PerformanceDetailResponse.from(performance, Collections.emptyList(), Collections.emptyList());
     }
 
     @Override
@@ -73,6 +76,12 @@ public class PerformanceServiceImpl implements PerformanceService {
                 .map(PerformanceSongResponse::from)
                 .toList();
 
-        return PerformanceDetailResponse.from(performance, songs);
+        List<PerformanceMemberResponse> members = performanceMemberRepository
+                .findAllByPerformance_PerformanceIdOrderByCreatedAtAsc(performanceId)
+                .stream()
+                .map(PerformanceMemberResponse::from)
+                .toList();
+
+        return PerformanceDetailResponse.from(performance, songs, members);
     }
 }

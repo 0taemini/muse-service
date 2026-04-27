@@ -15,6 +15,7 @@ import com.muse.service.backend.entity.User;
 import com.muse.service.backend.global.exception.CustomException;
 import com.muse.service.backend.global.exception.ErrorCode;
 import com.muse.service.backend.repository.ChatRoomRepository;
+import com.muse.service.backend.repository.PerformanceMemberRepository;
 import com.muse.service.backend.repository.PerformanceRepository;
 import com.muse.service.backend.repository.PerformanceSessionColumnRepository;
 import com.muse.service.backend.repository.PerformanceSongRepository;
@@ -34,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PerformanceSongServiceImpl implements PerformanceSongService {
 
     private final PerformanceRepository performanceRepository;
+    private final PerformanceMemberRepository performanceMemberRepository;
     private final PerformanceSongRepository performanceSongRepository;
     private final PerformanceSongSessionRepository performanceSongSessionRepository;
     private final PerformanceSessionColumnRepository performanceSessionColumnRepository;
@@ -116,7 +118,6 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
     ) {
         findUser(userId);
         PerformanceSong performanceSong = findActivePerformanceSong(performanceId, performanceSongId);
-        ensureNoChatRoom(performanceSongId);
         performanceSong.changeSelectionStatus(request.selectionStatus());
 
         return toDetailResponse(
@@ -144,7 +145,7 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
             );
             User assignedUser = sessionRequest.assignedUserId() == null
                     ? null
-                    : findUser(sessionRequest.assignedUserId());
+                    : findPerformanceMemberUser(performanceId, sessionRequest.assignedUserId());
 
             PerformanceSongSession session = performanceSongSessionRepository
                     .findByPerformanceSong_PerformanceSongIdAndPerformanceSessionColumn_PerformanceSessionColumnId(
@@ -234,6 +235,14 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
     private User findUser(Integer userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private User findPerformanceMemberUser(Integer performanceId, Integer userId) {
+        User user = findUser(userId);
+        if (!performanceMemberRepository.existsByPerformance_PerformanceIdAndUser_UserId(performanceId, userId)) {
+            throw new CustomException(ErrorCode.DATA_CONFLICT);
+        }
+        return user;
     }
 
     private void ensureAuthor(PerformanceSong performanceSong, Integer userId) {
