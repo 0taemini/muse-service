@@ -16,6 +16,7 @@ import com.muse.service.backend.repository.UserRepository;
 import java.util.List;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,7 @@ import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
@@ -68,7 +70,10 @@ public class UserServiceImpl implements UserService {
             allUser.changeEmail(normalizedEmail);
         }
 
-        return UserResponse.from(userRepository.save(user));
+        User savedUser = userRepository.save(user);
+        log.info("회원 생성 완료: userId={}, allUserId={}, role={}, status={}",
+                savedUser.getUserId(), allUser.getAllUserId(), savedUser.getRole(), savedUser.getStatus());
+        return UserResponse.from(savedUser);
     }
 
     @Override
@@ -93,6 +98,7 @@ public class UserServiceImpl implements UserService {
         if (request.status() == User.UserStatus.DELETED) {
             clearSessionAssignments(userId);
         }
+        log.info("회원 상태 변경 완료: targetUserId={}, status={}", userId, request.status());
         return UserResponse.from(user);
     }
 
@@ -101,6 +107,7 @@ public class UserServiceImpl implements UserService {
     public UserResponse updateRole(Integer userId, UserRoleUpdateRequest request) {
         User user = findUser(userId);
         user.changeRole(request.role());
+        log.info("회원 권한 변경 완료: targetUserId={}, role={}", userId, request.role());
         return UserResponse.from(user);
     }
 
@@ -110,6 +117,7 @@ public class UserServiceImpl implements UserService {
         User user = findUser(userId);
         user.changeStatus(User.UserStatus.DELETED);
         clearSessionAssignments(userId);
+        log.info("회원 논리 삭제 완료: targetUserId={}", userId);
     }
 
     @Override
@@ -162,6 +170,13 @@ public class UserServiceImpl implements UserService {
             user.changePassword(passwordEncoder.encode(rawPassword));
         }
 
+        log.info("내 프로필 수정 완료: userId={}, emailChanged={}, cohortChanged={}, nicknameChanged={}, rankChanged={}, passwordChanged={}",
+                userId,
+                request.email() != null,
+                request.cohort() != null,
+                request.nickname() != null,
+                request.rank() != null,
+                request.password() != null);
         return UserResponse.from(user);
     }
 

@@ -13,11 +13,13 @@ import com.muse.service.backend.repository.PerformanceSongSessionRepository;
 import com.muse.service.backend.repository.UserRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PerformanceMemberServiceImpl implements PerformanceMemberService {
 
     private final PerformanceRepository performanceRepository;
@@ -56,6 +58,8 @@ public class PerformanceMemberServiceImpl implements PerformanceMemberService {
                         .user(memberUser)
                         .build()
         );
+        log.info("공연 멤버 추가 완료: performanceId={}, memberUserId={}, actorUserId={}",
+                performanceId, memberUser.getUserId(), userId);
 
         return PerformanceMemberResponse.from(performanceMember);
     }
@@ -73,6 +77,8 @@ public class PerformanceMemberServiceImpl implements PerformanceMemberService {
                 .forEach(session -> session.assignUser(null));
 
         performanceMemberRepository.delete(performanceMember);
+        log.info("공연 멤버 삭제 완료: performanceId={}, memberUserId={}, actorUserId={}",
+                performanceId, memberUserId, userId);
     }
 
     private Performance findPerformance(Integer performanceId) {

@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -17,6 +18,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String TOKEN_PREFIX = "Bearer ";
@@ -32,8 +34,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (header != null && header.startsWith(TOKEN_PREFIX)) {
             String token = header.substring(TOKEN_PREFIX.length()).trim();
-            if (jwtTokenProvider.validateToken(token)
-                    && jwtTokenProvider.isAccessToken(token)
+            boolean validToken = jwtTokenProvider.validateToken(token);
+            boolean accessToken = validToken && jwtTokenProvider.isAccessToken(token);
+            if (validToken
+                    && accessToken
                     && SecurityContextHolder.getContext().getAuthentication() == null) {
                 String email = jwtTokenProvider.getEmail(token);
                 UserDetails userDetails = userDetailService.loadUserByUsername(email);
@@ -44,6 +48,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 );
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+            } else if (!validToken || !accessToken) {
+                log.warn("유효하지 않은 JWT 요청: method={}, uri={}, validToken={}, accessToken={}",
+                        request.getMethod(), request.getRequestURI(), validToken, accessToken);
             }
         }
         filterChain.doFilter(request, response);

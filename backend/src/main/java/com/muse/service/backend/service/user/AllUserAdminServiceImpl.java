@@ -10,12 +10,14 @@ import com.muse.service.backend.global.exception.ErrorCode;
 import com.muse.service.backend.repository.AllUserRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AllUserAdminServiceImpl implements AllUserAdminService {
 
     private final AllUserRepository allUserRepository;
@@ -45,6 +47,8 @@ public class AllUserAdminServiceImpl implements AllUserAdminService {
                 .phone(phone)
                 .status(AllUser.AllUserStatus.ACTIVE)
                 .build());
+        log.info("전체 명부 멤버 추가 완료: allUserId={}, cohort={}, status={}",
+                allUser.getAllUserId(), allUser.getCohort(), allUser.getStatus());
         return AllUserResponse.from(allUser);
     }
 
@@ -63,6 +67,8 @@ public class AllUserAdminServiceImpl implements AllUserAdminService {
         allUser.changeCohort(cohort);
         allUser.changeEmail(email);
         allUser.changePhone(phone);
+        log.info("전체 명부 멤버 수정 완료: allUserId={}, cohort={}, hasEmail={}, hasPhone={}",
+                allUserId, cohort, StringUtils.hasText(email), StringUtils.hasText(phone));
         return AllUserResponse.from(allUser);
     }
 
@@ -71,6 +77,7 @@ public class AllUserAdminServiceImpl implements AllUserAdminService {
     public AllUserResponse updateStatus(Integer allUserId, AllUserStatusUpdateRequest request) {
         AllUser allUser = findAllUser(allUserId);
         allUser.changeStatus(request.status());
+        log.info("전체 명부 멤버 상태 변경 완료: allUserId={}, status={}", allUserId, request.status());
         return AllUserResponse.from(allUser);
     }
 
@@ -79,6 +86,7 @@ public class AllUserAdminServiceImpl implements AllUserAdminService {
     public void delete(Integer allUserId) {
         AllUser allUser = findAllUser(allUserId);
         allUser.changeStatus(AllUser.AllUserStatus.DELETED);
+        log.info("전체 명부 멤버 논리 삭제 완료: allUserId={}", allUserId);
     }
 
     private void validateDuplicateForCreate(String name, Integer cohort, String email, String phone) {

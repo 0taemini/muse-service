@@ -34,11 +34,13 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ChatRoomServiceImpl implements ChatRoomService {
 
     private static final int ROUND_COOLDOWN_HOURS = 6;
@@ -74,10 +76,13 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         Map<Integer, PerformanceSong> performanceSongMap = performanceSongs.stream()
                 .collect(Collectors.toMap(PerformanceSong::getPerformanceSongId, Function.identity()));
 
-        return requestedSongIds.stream()
+        List<ChatRoomSummaryResponse> createdRooms = requestedSongIds.stream()
                 .map(performanceSongMap::get)
                 .map(this::createRoomWithInitialRound)
                 .toList();
+        log.info("채팅방 생성 완료: performanceId={}, actorUserId={}, requestedCount={}, createdCount={}",
+                performanceId, userId, requestedSongIds.size(), createdRooms.size());
+        return createdRooms;
     }
 
     @Override
@@ -143,6 +148,8 @@ public class ChatRoomServiceImpl implements ChatRoomService {
                         .status(ChatRound.RoundStatus.OPEN)
                         .build()
         );
+        log.info("채팅 라운드 생성 완료: performanceId={}, chatRoomId={}, chatRoundId={}, actorUserId={}",
+                performanceId, chatRoomId, newRound.getChatRoundId(), userId);
         return ChatRoundSummaryResponse.from(newRound);
     }
 
@@ -190,6 +197,8 @@ public class ChatRoomServiceImpl implements ChatRoomService {
                 ))
                 .toList();
         chatRound.markSummarized(user);
+        log.info("채팅 라운드 피드백 종합 완료: performanceId={}, chatRoomId={}, chatRoundId={}, actorUserId={}, summaryCount={}",
+                performanceId, chatRoomId, chatRoundId, userId, summaries.size());
 
         return summaries.stream()
                 .map(FeedbackSummaryResponse::from)
@@ -228,6 +237,8 @@ public class ChatRoomServiceImpl implements ChatRoomService {
                         .status(ChatRound.RoundStatus.OPEN)
                         .build()
         );
+        log.info("채팅방 및 초기 라운드 생성 완료: performanceSongId={}, chatRoomId={}, chatRoundId={}",
+                performanceSong.getPerformanceSongId(), chatRoom.getChatRoomId(), chatRound.getChatRoundId());
 
         return ChatRoomSummaryResponse.from(chatRoom, chatRound);
     }

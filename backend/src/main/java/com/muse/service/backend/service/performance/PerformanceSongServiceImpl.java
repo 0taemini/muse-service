@@ -28,11 +28,13 @@ import java.util.Comparator;
 import java.util.List;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PerformanceSongServiceImpl implements PerformanceSongService {
 
     private final PerformanceRepository performanceRepository;
@@ -71,6 +73,9 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
                 performanceSong,
                 performanceSessionColumnService.ensureDefaultColumns(performanceId)
         );
+        log.info("공연 곡 추가 완료: performanceId={}, performanceSongId={}, userId={}, status={}, orderNo={}",
+                performanceId, performanceSong.getPerformanceSongId(), userId,
+                performanceSong.getSelectionStatus(), performanceSong.getOrderNo());
         return toDetailResponse(performanceSong, sessions);
     }
 
@@ -102,6 +107,8 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
                 request.isSheet(),
                 request.orderNo()
         );
+        log.info("공연 곡 수정 완료: performanceId={}, performanceSongId={}, userId={}, orderNo={}",
+                performanceId, performanceSongId, userId, performanceSong.getOrderNo());
 
         return toDetailResponse(
                 performanceSong,
@@ -120,6 +127,8 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
         ensureAdmin(userId);
         PerformanceSong performanceSong = findActivePerformanceSong(performanceId, performanceSongId);
         performanceSong.changeSelectionStatus(request.selectionStatus());
+        log.info("공연 곡 상태 변경 완료: performanceId={}, performanceSongId={}, adminUserId={}, status={}",
+                performanceId, performanceSongId, userId, request.selectionStatus());
 
         return toDetailResponse(
                 performanceSong,
@@ -138,6 +147,8 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
         findUser(userId);
         PerformanceSong performanceSong = findActivePerformanceSong(performanceId, performanceSongId);
         performanceSong.changeOrderNo(request.orderNo());
+        log.info("공연 곡 순서 변경 완료: performanceId={}, performanceSongId={}, userId={}, orderNo={}",
+                performanceId, performanceSongId, userId, request.orderNo());
 
         return toDetailResponse(
                 performanceSong,
@@ -186,6 +197,12 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
 
             session.applyColumn(sessionColumn);
             session.assignUser(assignedUser);
+            log.info("세션 배정 변경 완료: performanceId={}, performanceSongId={}, sessionColumnId={}, assigneeUserId={}, actorUserId={}",
+                    performanceId,
+                    performanceSongId,
+                    sessionColumn.getPerformanceSessionColumnId(),
+                    assignedUser == null ? null : assignedUser.getUserId(),
+                    userId);
             updatedSessions.add(session);
         }
 
@@ -200,6 +217,8 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
         ensureAuthor(performanceSong, userId);
         ensureNoChatRoom(performanceSongId);
         performanceSong.softDelete(findUser(userId));
+        log.info("공연 곡 논리 삭제 완료: performanceId={}, performanceSongId={}, userId={}",
+                performanceId, performanceSongId, userId);
     }
 
     private List<PerformanceSongSession> createInitialSessions(

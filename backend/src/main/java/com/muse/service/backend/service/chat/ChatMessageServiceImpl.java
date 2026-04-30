@@ -18,11 +18,13 @@ import com.muse.service.backend.repository.PerformanceMemberRepository;
 import com.muse.service.backend.repository.PerformanceSongSessionRepository;
 import com.muse.service.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ChatMessageServiceImpl implements ChatMessageService {
 
     private final ChatRoomRepository chatRoomRepository;
@@ -75,6 +77,12 @@ public class ChatMessageServiceImpl implements ChatMessageService {
                         .content(content)
                         .build()
         );
+        log.info("채팅 메시지 저장 완료: chatRoomId={}, chatRoundId={}, messageId={}, senderUserId={}, targetSessionId={}",
+                chatRoomId,
+                currentRound.getChatRoundId(),
+                message.getMessageId(),
+                userId,
+                targetSession.getPerformanceSongSessionId());
         return ChatMessageResponse.from(message);
     }
 

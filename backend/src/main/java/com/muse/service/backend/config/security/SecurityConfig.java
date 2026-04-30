@@ -1,5 +1,6 @@
 package com.muse.service.backend.config.security;
 
+import com.muse.service.backend.config.logging.RequestLoggingFilter;
 import com.muse.service.backend.security.handler.CustomAccessDeniedHandler;
 import com.muse.service.backend.security.handler.CustomAuthenticationEntryPoint;
 import com.muse.service.backend.security.jwt.JwtAuthenticationFilter;
@@ -31,6 +32,8 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        RequestLoggingFilter requestLoggingFilter = requestLoggingFilter();
+
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -54,9 +57,15 @@ public class SecurityConfig {
                 )
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(requestLoggingFilter, JwtAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    @Bean
+    public RequestLoggingFilter requestLoggingFilter() {
+        return new RequestLoggingFilter();
     }
 
     @Bean

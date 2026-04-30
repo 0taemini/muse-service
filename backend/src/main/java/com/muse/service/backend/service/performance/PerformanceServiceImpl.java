@@ -16,11 +16,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PerformanceServiceImpl implements PerformanceService {
 
     private final PerformanceRepository performanceRepository;
@@ -35,6 +37,7 @@ public class PerformanceServiceImpl implements PerformanceService {
                         .title(request.title().trim())
                         .build()
         );
+        log.info("공연 생성 완료: performanceId={}, title={}", performance.getPerformanceId(), performance.getTitle());
 
         return PerformanceDetailResponse.from(performance, Collections.emptyList(), Collections.emptyList());
     }
