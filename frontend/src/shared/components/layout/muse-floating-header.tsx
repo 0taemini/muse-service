@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useLogout } from '@features/auth/hooks/use-auth-actions';
 import { useAuthStore } from '@features/auth/store/auth-store';
+import { userApi } from '@features/user/api/user-api';
 import { Button } from '@shared/components/ui/button';
 import { cn } from '@shared/lib/cn';
 
@@ -20,6 +22,8 @@ const privateMenuItems = [
   { to: '/performances', label: '공연 관리' },
   { to: '/me', label: '마이페이지' },
 ] as const;
+
+const adminMenuItem = { to: '/admin/users', label: '관리자' } as const;
 
 const myPageSubItems = [
   { to: '/me?tab=profile', label: '개인정보 수정' },
@@ -134,6 +138,13 @@ export function MuseFloatingHeader() {
   const location = useLocation();
   const navigate = useNavigate();
   const isAuthenticated = Boolean(accessToken);
+  const meQuery = useQuery({
+    queryKey: ['me'],
+    queryFn: userApi.getMe,
+    enabled: isAuthenticated,
+  });
+  const isAdmin = meQuery.data?.data.role === 'ADMIN';
+  const visiblePrivateMenuItems = isAdmin ? [...privateMenuItems, adminMenuItem] : privateMenuItems;
 
   const [isRecoveryMenuOpen, setIsRecoveryMenuOpen] = useState(false);
   const [isMyPageMenuOpen, setIsMyPageMenuOpen] = useState(false);
@@ -181,7 +192,7 @@ export function MuseFloatingHeader() {
           <nav className="hidden flex-1 items-center justify-center gap-6 md:flex">
             {isAuthenticated ? (
               <>
-                {privateMenuItems.map((item) =>
+                {visiblePrivateMenuItems.map((item) =>
                   item.to === '/me' ? (
                     <FloatingNavDropdown
                       key={item.to}
@@ -258,7 +269,7 @@ export function MuseFloatingHeader() {
           <div className="absolute right-0 top-[calc(100%+10px)] w-[min(248px,calc(100vw-24px))] md:hidden">
             <div className="rounded-[24px] border border-[rgba(95,75,182,0.14)] bg-white px-2.5 py-2.5 shadow-[0_18px_38px_rgba(41,28,93,0.1)]">
               <div className="flex flex-col gap-2">
-                {(isAuthenticated ? privateMenuItems : publicMenuItems).map((item) => {
+                {(isAuthenticated ? visiblePrivateMenuItems : publicMenuItems).map((item) => {
                   if (!isAuthenticated && item.to === '/recovery') {
                     return (
                       <div key={`mobile-${item.to}`} className="space-y-2">

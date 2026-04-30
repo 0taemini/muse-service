@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Size;
 
 public record UserProfileUpdateRequest(
         @Email String email,
+        @Size(min = 1, max = 30) String nickname,
         @Size(max = 255) String currentPassword,
         @Size(min = 8, max = 64)
         @Pattern(

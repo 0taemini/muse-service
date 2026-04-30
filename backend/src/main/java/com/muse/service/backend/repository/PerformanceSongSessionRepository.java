@@ -25,4 +25,6 @@ public interface PerformanceSongSessionRepository extends JpaRepository<Performa
             Integer performanceId,
             Integer userId
     );
+
+    List<PerformanceSongSession> findAllByAssignedUser_UserId(Integer userId);
 }

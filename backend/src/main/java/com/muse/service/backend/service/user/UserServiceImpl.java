@@ -3,12 +3,14 @@ package com.muse.service.backend.service.user;
 import com.muse.service.backend.dto.user.UserCreateRequest;
 import com.muse.service.backend.dto.user.UserProfileUpdateRequest;
 import com.muse.service.backend.dto.user.UserResponse;
+import com.muse.service.backend.dto.user.UserRoleUpdateRequest;
 import com.muse.service.backend.dto.user.UserStatusUpdateRequest;
 import com.muse.service.backend.entity.AllUser;
 import com.muse.service.backend.entity.User;
 import com.muse.service.backend.global.exception.CustomException;
 import com.muse.service.backend.global.exception.ErrorCode;
 import com.muse.service.backend.repository.AllUserRepository;
+import com.muse.service.backend.repository.PerformanceSongSessionRepository;
 import com.muse.service.backend.repository.UserRepository;
 
 import java.util.List;
@@ -25,6 +27,7 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final AllUserRepository allUserRepository;
+    private final PerformanceSongSessionRepository performanceSongSessionRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -87,7 +90,26 @@ public class UserServiceImpl implements UserService {
     public UserResponse updateStatus(Integer userId, UserStatusUpdateRequest request) {
         User user = findUser(userId);
         user.changeStatus(request.status());
+        if (request.status() == User.UserStatus.DELETED) {
+            clearSessionAssignments(userId);
+        }
         return UserResponse.from(user);
+    }
+
+    @Override
+    @Transactional
+    public UserResponse updateRole(Integer userId, UserRoleUpdateRequest request) {
+        User user = findUser(userId);
+        user.changeRole(request.role());
+        return UserResponse.from(user);
+    }
+
+    @Override
+    @Transactional
+    public void delete(Integer userId) {
+        User user = findUser(userId);
+        user.changeStatus(User.UserStatus.DELETED);
+        clearSessionAssignments(userId);
     }
 
     @Override
@@ -113,6 +135,17 @@ public class UserServiceImpl implements UserService {
             allUser.changeCohort(request.cohort());
         }
 
+        if (request.nickname() != null) {
+            String nickname = request.nickname().trim();
+            if (!StringUtils.hasText(nickname)) {
+                throw new CustomException(ErrorCode.VALIDATION_ERROR);
+            }
+            if (!nickname.equals(user.getNickname()) && userRepository.existsByNickname(nickname)) {
+                throw new CustomException(ErrorCode.NICKNAME_ALREADY_IN_USE);
+            }
+            user.changeNickname(nickname);
+        }
+
         if (request.rank() != null) {
             user.changeRank(request.rank());
         }
@@ -135,6 +168,11 @@ public class UserServiceImpl implements UserService {
     private User findUser(Integer userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private void clearSessionAssignments(Integer userId) {
+        performanceSongSessionRepository.findAllByAssignedUser_UserId(userId)
+                .forEach(session -> session.assignUser(null));
     }
 
     private String normalizeEmail(String email) {

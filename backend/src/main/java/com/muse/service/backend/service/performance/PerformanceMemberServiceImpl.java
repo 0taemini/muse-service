@@ -29,7 +29,12 @@ public class PerformanceMemberServiceImpl implements PerformanceMemberService {
     @Transactional(readOnly = true)
     public List<PerformanceMemberResponse> getAll(Integer performanceId) {
         findPerformance(performanceId);
-        return performanceMemberRepository.findAllByPerformance_PerformanceIdOrderByCreatedAtAsc(performanceId).stream()
+        return performanceMemberRepository
+                .findAllByPerformance_PerformanceIdAndUser_StatusOrderByCreatedAtAsc(
+                        performanceId,
+                        User.UserStatus.ACTIVE
+                )
+                .stream()
                 .map(PerformanceMemberResponse::from)
                 .toList();
     }
@@ -39,7 +44,7 @@ public class PerformanceMemberServiceImpl implements PerformanceMemberService {
     public PerformanceMemberResponse create(Integer performanceId, Integer userId, PerformanceMemberCreateRequest request) {
         findUser(userId);
         Performance performance = findPerformance(performanceId);
-        User memberUser = findUser(request.userId());
+        User memberUser = findActiveUser(request.userId());
 
         if (performanceMemberRepository.existsByPerformance_PerformanceIdAndUser_UserId(performanceId, request.userId())) {
             throw new CustomException(ErrorCode.DATA_CONFLICT);
@@ -77,6 +82,11 @@ public class PerformanceMemberServiceImpl implements PerformanceMemberService {
 
     private User findUser(Integer userId) {
         return userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private User findActiveUser(Integer userId) {
+        return userRepository.findByUserIdAndStatus(userId, User.UserStatus.ACTIVE)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 }

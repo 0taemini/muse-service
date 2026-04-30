@@ -117,7 +117,7 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
             Integer userId,
             PerformanceSongStatusUpdateRequest request
     ) {
-        findUser(userId);
+        ensureAdmin(userId);
         PerformanceSong performanceSong = findActivePerformanceSong(performanceId, performanceSongId);
         performanceSong.changeSelectionStatus(request.selectionStatus());
 
@@ -256,9 +256,21 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 
-    private User findPerformanceMemberUser(Integer performanceId, Integer userId) {
+    private void ensureAdmin(Integer userId) {
         User user = findUser(userId);
-        if (!performanceMemberRepository.existsByPerformance_PerformanceIdAndUser_UserId(performanceId, userId)) {
+        if (user.getRole() != User.UserRole.ADMIN) {
+            throw new CustomException(ErrorCode.ACCESS_DENIED);
+        }
+    }
+
+    private User findPerformanceMemberUser(Integer performanceId, Integer userId) {
+        User user = userRepository.findByUserIdAndStatus(userId, User.UserStatus.ACTIVE)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        if (!performanceMemberRepository.existsByPerformance_PerformanceIdAndUser_UserIdAndUser_Status(
+                performanceId,
+                userId,
+                User.UserStatus.ACTIVE
+        )) {
             throw new CustomException(ErrorCode.DATA_CONFLICT);
         }
         return user;

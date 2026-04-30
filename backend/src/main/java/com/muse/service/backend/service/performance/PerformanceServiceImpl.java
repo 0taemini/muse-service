@@ -6,6 +6,7 @@ import com.muse.service.backend.dto.performance.PerformanceMemberResponse;
 import com.muse.service.backend.dto.performance.PerformanceSongResponse;
 import com.muse.service.backend.dto.performance.PerformanceSummaryResponse;
 import com.muse.service.backend.entity.Performance;
+import com.muse.service.backend.entity.User;
 import com.muse.service.backend.global.exception.CustomException;
 import com.muse.service.backend.global.exception.ErrorCode;
 import com.muse.service.backend.repository.PerformanceMemberRepository;
@@ -77,7 +78,10 @@ public class PerformanceServiceImpl implements PerformanceService {
                 .toList();
 
         List<PerformanceMemberResponse> members = performanceMemberRepository
-                .findAllByPerformance_PerformanceIdOrderByCreatedAtAsc(performanceId)
+                .findAllByPerformance_PerformanceIdAndUser_StatusOrderByCreatedAtAsc(
+                        performanceId,
+                        User.UserStatus.ACTIVE
+                )
                 .stream()
                 .map(PerformanceMemberResponse::from)
                 .toList();

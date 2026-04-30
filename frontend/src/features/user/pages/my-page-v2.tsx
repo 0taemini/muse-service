@@ -7,12 +7,12 @@ import { z } from 'zod';
 import type { UserRank } from '@entities/user/model/user.types';
 import { userApi, type UpdateProfilePayload } from '@features/user/api/user-api';
 import { profileSchemaFixed } from '@features/auth/model/schemas-fixed';
-import { Card } from '@shared/components/ui/card';
-import { Button } from '@shared/components/ui/button';
-import { Input } from '@shared/components/ui/input';
-import { FormField } from '@shared/components/ui/form-field';
 import { toApiMessage } from '@features/auth/api/auth-api';
+import { Button } from '@shared/components/ui/button';
+import { Card } from '@shared/components/ui/card';
+import { FormField } from '@shared/components/ui/form-field';
 import { InlineNotice } from '@shared/components/ui/inline-notice';
+import { Input } from '@shared/components/ui/input';
 import { StatePanel } from '@shared/components/ui/state-panel';
 import { cn } from '@shared/lib/cn';
 
@@ -21,7 +21,7 @@ type ProfileFormValues = z.infer<typeof formSchema>;
 
 const rankOptions: { value: UserRank; label: string }[] = [
   { value: 'NEWBIE', label: '신입' },
-  { value: 'ACTIVE', label: '현역' },
+  { value: 'ACTIVE', label: '활동' },
   { value: 'YB', label: 'YB' },
   { value: 'OB', label: 'OB' },
 ];
@@ -39,6 +39,7 @@ export function MyPageV2() {
   const rankMenuRef = useRef<HTMLDivElement | null>(null);
   const [serverMessage, setServerMessage] = useState('');
   const [isRankMenuOpen, setIsRankMenuOpen] = useState(false);
+
   const { data, isLoading } = useQuery({
     queryKey: ['me'],
     queryFn: userApi.getMe,
@@ -48,10 +49,12 @@ export function MyPageV2() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: '',
+      nickname: '',
       cohort: undefined,
       rank: 'NEWBIE',
       currentPassword: '',
       password: '',
+      confirmPassword: '',
     },
   });
 
@@ -59,10 +62,12 @@ export function MyPageV2() {
     if (data?.data) {
       form.reset({
         email: data.data.email,
+        nickname: data.data.nickname,
         cohort: data.data.cohort,
         rank: data.data.rank ?? 'NEWBIE',
         currentPassword: '',
         password: '',
+        confirmPassword: '',
       });
     }
   }, [data, form]);
@@ -85,10 +90,12 @@ export function MyPageV2() {
       queryClient.invalidateQueries({ queryKey: ['me'] });
       form.reset({
         email: response.data.email,
+        nickname: response.data.nickname,
         cohort: response.data.cohort,
         rank: response.data.rank ?? 'NEWBIE',
         currentPassword: '',
         password: '',
+        confirmPassword: '',
       });
       setIsRankMenuOpen(false);
     },
@@ -100,6 +107,10 @@ export function MyPageV2() {
 
     if (values.email) {
       payload.email = values.email;
+    }
+
+    if (values.nickname) {
+      payload.nickname = values.nickname;
     }
 
     if (values.cohort) {
@@ -130,21 +141,25 @@ export function MyPageV2() {
             <p className="section-kicker">Profile Edit</p>
             <h2 className="text-3xl font-semibold tracking-tight text-slate-900">개인정보 수정</h2>
             <p className="text-sm leading-7 text-slate-500">
-              이메일, 기수, 등급, 비밀번호를 한 곳에서 정리해 수정할 수 있습니다.
+              email, 닉네임, 기수, 등급, 비밀번호를 한 곳에서 수정할 수 있습니다.
             </p>
           </div>
 
           {!me && !isLoading ? (
             <StatePanel
-              title="계정 정보를 불러오지 못했습니다."
+              title="계정 정보를 불러오지 못했습니다"
               description="잠시 후 다시 시도해 주세요. 문제가 계속되면 운영진에게 알려 주세요."
               tone="danger"
             />
           ) : null}
 
           <form className="space-y-4" onSubmit={handleSubmit}>
-            <FormField label="이메일" error={form.formState.errors.email?.message}>
+            <FormField label="email" error={form.formState.errors.email?.message}>
               <Input type="email" placeholder="muse@example.com" {...form.register('email')} />
+            </FormField>
+
+            <FormField label="닉네임" error={form.formState.errors.nickname?.message}>
+              <Input placeholder="닉네임 입력" {...form.register('nickname')} />
             </FormField>
 
             <FormField label="기수" error={form.formState.errors.cohort?.message?.toString()}>
@@ -165,7 +180,7 @@ export function MyPageV2() {
                       isRankMenuOpen ? 'rotate-180' : '',
                     )}
                   >
-                    ▼
+                    ▾
                   </span>
                 </button>
 
@@ -207,6 +222,10 @@ export function MyPageV2() {
               <Input type="password" placeholder="새 비밀번호 입력" {...form.register('password')} />
             </FormField>
 
+            <FormField label="새 비밀번호 확인" error={form.formState.errors.confirmPassword?.message}>
+              <Input type="password" placeholder="새 비밀번호 다시 입력" {...form.register('confirmPassword')} />
+            </FormField>
+
             {serverMessage ? (
               <InlineNotice tone={updateMutation.isError ? 'error' : 'success'}>{serverMessage}</InlineNotice>
             ) : null}
@@ -224,7 +243,7 @@ export function MyPageV2() {
             <p className="section-kicker">Feedback</p>
             <h2 className="text-3xl font-semibold tracking-tight text-slate-900">피드백 확인</h2>
             <p className="text-sm leading-7 text-slate-500">
-              공연별 라운드 피드백과 개인 요약 내용을 한 곳에서 보기 쉽게 정리할 예정입니다.
+              공연별 라운드 피드백과 개인 요약 내용을 이곳에서 확인할 수 있도록 준비 중입니다.
             </p>
           </div>
 
@@ -233,22 +252,6 @@ export function MyPageV2() {
             description="라운드 요약과 개인 피드백 조회 기능이 연결되면 이곳에서 바로 확인할 수 있습니다."
             tone="accent"
           />
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-[24px] border border-[rgba(95,75,182,0.12)] bg-[#faf8ff] p-5">
-              <p className="text-sm font-semibold text-[#4e3b9d]">최근 피드백</p>
-              <p className="mt-3 text-sm leading-7 text-slate-600">
-                최근 합주 라운드 기준 요약과 개선 포인트가 이 영역에 표시되도록 준비하고 있습니다.
-              </p>
-            </div>
-
-            <div className="rounded-[24px] border border-[rgba(95,75,182,0.12)] bg-[#faf8ff] p-5">
-              <p className="text-sm font-semibold text-[#4e3b9d]">공연별 정리</p>
-              <p className="mt-3 text-sm leading-7 text-slate-600">
-                공연별로 누적된 피드백을 정리해서 빠르게 찾아볼 수 있도록 준비하고 있습니다.
-              </p>
-            </div>
-          </div>
         </Card>
       )}
     </section>

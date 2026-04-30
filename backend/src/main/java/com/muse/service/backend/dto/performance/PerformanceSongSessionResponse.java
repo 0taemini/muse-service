@@ -1,6 +1,7 @@
 package com.muse.service.backend.dto.performance;
 
 import com.muse.service.backend.entity.PerformanceSongSession;
+import com.muse.service.backend.entity.User;
 
 public record PerformanceSongSessionResponse(
         Integer performanceSongSessionId,
@@ -22,7 +23,9 @@ public record PerformanceSongSessionResponse(
                 session.getSessionName(),
                 session.getIsRequired(),
                 session.getDisplayOrder(),
-                session.getAssignedUser() == null ? null : session.getAssignedUser().getUserId()
+                session.getAssignedUser() == null || session.getAssignedUser().getStatus() != User.UserStatus.ACTIVE
+                        ? null
+                        : session.getAssignedUser().getUserId()
         );
     }
 }

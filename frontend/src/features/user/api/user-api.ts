@@ -4,6 +4,7 @@ import type { User, UserRank } from '@entities/user/model/user.types';
 
 export interface UpdateProfilePayload {
   email?: string;
+  nickname?: string;
   cohort?: number;
   rank?: UserRank;
   currentPassword?: string;
