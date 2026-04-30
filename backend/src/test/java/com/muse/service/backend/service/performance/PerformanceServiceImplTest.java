@@ -9,6 +9,7 @@ import com.muse.service.backend.dto.performance.PerformanceDetailResponse;
 import com.muse.service.backend.dto.performance.PerformanceSummaryResponse;
 import com.muse.service.backend.entity.Performance;
 import com.muse.service.backend.entity.PerformanceSong;
+import com.muse.service.backend.entity.User;
 import com.muse.service.backend.global.exception.CustomException;
 import com.muse.service.backend.global.exception.ErrorCode;
 import com.muse.service.backend.repository.PerformanceMemberRepository;
@@ -88,6 +89,10 @@ class PerformanceServiceImplTest {
         when(performanceRepository.findById(1)).thenReturn(java.util.Optional.of(performance));
         when(performanceSongRepository.findAllActiveByPerformanceIdOrderByOrderNoAsc(1))
                 .thenReturn(List.of(firstSong, secondSong));
+        when(performanceMemberRepository.findAllByPerformance_PerformanceIdAndUser_StatusOrderByCreatedAtAsc(
+                1,
+                User.UserStatus.ACTIVE
+        )).thenReturn(List.of());
 
         PerformanceDetailResponse response = performanceService.getById(1);
 

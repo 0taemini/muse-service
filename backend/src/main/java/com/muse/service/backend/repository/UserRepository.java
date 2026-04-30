@@ -18,4 +18,6 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     Optional<User> findByEmailIgnoreCase(String email);
 
     Optional<User> findByAllUser_AllUserId(Integer allUserId);
+
+    Optional<User> findByUserIdAndStatus(Integer userId, User.UserStatus status);
 }

@@ -13,11 +13,13 @@ import com.muse.service.backend.repository.PerformanceSongSessionRepository;
 import com.muse.service.backend.repository.UserRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PerformanceMemberServiceImpl implements PerformanceMemberService {
 
     private final PerformanceRepository performanceRepository;
@@ -29,7 +31,12 @@ public class PerformanceMemberServiceImpl implements PerformanceMemberService {
     @Transactional(readOnly = true)
     public List<PerformanceMemberResponse> getAll(Integer performanceId) {
         findPerformance(performanceId);
-        return performanceMemberRepository.findAllByPerformance_PerformanceIdOrderByCreatedAtAsc(performanceId).stream()
+        return performanceMemberRepository
+                .findAllByPerformance_PerformanceIdAndUser_StatusOrderByCreatedAtAsc(
+                        performanceId,
+                        User.UserStatus.ACTIVE
+                )
+                .stream()
                 .map(PerformanceMemberResponse::from)
                 .toList();
     }
@@ -39,7 +46,7 @@ public class PerformanceMemberServiceImpl implements PerformanceMemberService {
     public PerformanceMemberResponse create(Integer performanceId, Integer userId, PerformanceMemberCreateRequest request) {
         findUser(userId);
         Performance performance = findPerformance(performanceId);
-        User memberUser = findUser(request.userId());
+        User memberUser = findActiveUser(request.userId());
 
         if (performanceMemberRepository.existsByPerformance_PerformanceIdAndUser_UserId(performanceId, request.userId())) {
             throw new CustomException(ErrorCode.DATA_CONFLICT);
@@ -51,6 +58,8 @@ public class PerformanceMemberServiceImpl implements PerformanceMemberService {
                         .user(memberUser)
                         .build()
         );
+        log.info("공연 멤버 추가 완료: performanceId={}, memberUserId={}, actorUserId={}",
+                performanceId, memberUser.getUserId(), userId);
 
         return PerformanceMemberResponse.from(performanceMember);
     }
@@ -68,6 +77,8 @@ public class PerformanceMemberServiceImpl implements PerformanceMemberService {
                 .forEach(session -> session.assignUser(null));
 
         performanceMemberRepository.delete(performanceMember);
+        log.info("공연 멤버 삭제 완료: performanceId={}, memberUserId={}, actorUserId={}",
+                performanceId, memberUserId, userId);
     }
 
     private Performance findPerformance(Integer performanceId) {
@@ -77,6 +88,11 @@ public class PerformanceMemberServiceImpl implements PerformanceMemberService {
 
     private User findUser(Integer userId) {
         return userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private User findActiveUser(Integer userId) {
+        return userRepository.findByUserIdAndStatus(userId, User.UserStatus.ACTIVE)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 }

@@ -83,11 +83,23 @@ public class AllUser {
         ACTIVE, DELETED
     }
 
+    public void changeName(String name) {
+        this.name = name;
+    }
+
     public void changeEmail(String email) {
         this.email = email;
     }
 
     public void changeCohort(Integer cohort) {
         this.cohort = cohort;
+    }
+
+    public void changePhone(String phone) {
+        this.phone = phone;
+    }
+
+    public void changeStatus(AllUserStatus status) {
+        this.status = status;
     }
 }

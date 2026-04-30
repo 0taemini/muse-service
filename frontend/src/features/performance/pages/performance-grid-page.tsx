@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useDeferredValue } from 'react';
 import { useRef, type DragEvent } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toApiMessage } from '@features/auth/api/auth-api';
@@ -21,12 +22,14 @@ import { InlineNotice } from '@shared/components/ui/inline-notice';
 import { Input } from '@shared/components/ui/input';
 import { Modal } from '@shared/components/ui/modal';
 import { Select } from '@shared/components/ui/select';
+import { Skeleton, SkeletonList } from '@shared/components/ui/skeleton';
 import { StatePanel } from '@shared/components/ui/state-panel';
 import { StatusBadge } from '@shared/components/ui/status-badge';
 import { cn } from '@shared/lib/cn';
 import { ChatTransport, type ChatTypingEvent } from '@shared/realtime/chat-transport';
 
 type StageId = 'catalog' | 'review' | 'assignment';
+type SongStatusFilter = 'ALL' | SelectionStatus;
 
 type SongDraft = {
   songTitle: string;
@@ -89,6 +92,13 @@ const selectionStatusSortOrder: Record<SelectionStatus, number> = {
   OUT: 2,
 };
 const selectionStatusOrder = ['CONFIRMED', 'NOT_BAD', 'OUT'] as const;
+const catalogPageSize = 10;
+const catalogStatusFilterOptions: SongStatusFilter[] = ['ALL', ...selectionStatusOrder];
+const stageOptions: { id: StageId; label: string }[] = [
+  { id: 'catalog', label: '곡 목록' },
+  { id: 'review', label: '선곡 심사' },
+  { id: 'assignment', label: '세션 배정' },
+];
 
 function compareByStatusThenOrder(left: PerformanceSongSummary, right: PerformanceSongSummary) {
   const statusDiff =
@@ -198,6 +208,8 @@ export function PerformanceGridPage() {
   const queryClient = useQueryClient();
   const location = useLocation();
   const [stage, setStage] = useState<StageId>('catalog');
+  const [catalogStatusFilter, setCatalogStatusFilter] = useState<SongStatusFilter>('ALL');
+  const [catalogPage, setCatalogPage] = useState(1);
   const [message, setMessage] = useState('');
   const [selectedPerformanceId, setSelectedPerformanceId] = useState<number | null>(null);
   const [isCreatePerformanceModalOpen, setIsCreatePerformanceModalOpen] = useState(false);
@@ -205,6 +217,8 @@ export function PerformanceGridPage() {
   const [isCreateColumnModalOpen, setIsCreateColumnModalOpen] = useState(false);
   const [isMemberManageModalOpen, setIsMemberManageModalOpen] = useState(false);
   const [isCreateChatRoomsModalOpen, setIsCreateChatRoomsModalOpen] = useState(false);
+  const [isMobileChatRoomsModalOpen, setIsMobileChatRoomsModalOpen] = useState(false);
+  const [mobileChatRoomSearch, setMobileChatRoomSearch] = useState('');
   const [draggingSongId, setDraggingSongId] = useState<number | null>(null);
   const [dragOverSongId, setDragOverSongId] = useState<number | null>(null);
   const [createPerformanceTitle, setCreatePerformanceTitle] = useState('');
@@ -214,7 +228,9 @@ export function PerformanceGridPage() {
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<number, Record<number, string>>>({});
   const [selectedChatRoomSongIds, setSelectedChatRoomSongIds] = useState<number[]>([]);
   const [songPendingDelete, setSongPendingDelete] = useState<PerformanceSongSummary | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() =>
+    typeof window === 'undefined' ? true : window.matchMedia('(min-width: 1280px)').matches,
+  );
   const [isSidebarSongListOpen, setIsSidebarSongListOpen] = useState(false);
   const [selectedMemberUserId, setSelectedMemberUserId] = useState('');
   const [selectedChatRoomId, setSelectedChatRoomId] = useState<number | null>(null);
@@ -224,6 +240,10 @@ export function PerformanceGridPage() {
   const [chatConnectionMessage, setChatConnectionMessage] = useState('');
   const [typingUsers, setTypingUsers] = useState<ChatTypingEvent[]>([]);
   const [isChatInputFocused, setIsChatInputFocused] = useState(false);
+  const [isChatActionMenuOpen, setIsChatActionMenuOpen] = useState(false);
+  const [assignmentSearch, setAssignmentSearch] = useState('');
+  const deferredMobileChatRoomSearch = useDeferredValue(mobileChatRoomSearch);
+  const deferredAssignmentSearch = useDeferredValue(assignmentSearch);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const chatTransportRef = useRef<ChatTransport | null>(null);
   const currentUserIdRef = useRef<number | null>(null);
@@ -278,6 +298,19 @@ export function PerformanceGridPage() {
     () => chatRoomsQuery.data?.data ?? EMPTY_ARRAY,
     [chatRoomsQuery.data],
   );
+  const mobileFilteredChatRooms = useMemo(
+    () => {
+      const keyword = deferredMobileChatRoomSearch.trim().toLowerCase();
+      if (!keyword) {
+        return visibleChatRooms;
+      }
+
+      return visibleChatRooms.filter((room) =>
+        `${room.songTitle} ${room.singer}`.toLowerCase().includes(keyword),
+      );
+    },
+    [deferredMobileChatRoomSearch, visibleChatRooms],
+  );
   const activeChatRoom: ChatRoomDetail | null = chatRoomDetailQuery.data?.data ?? null;
   const newChatRemainingText = formatRemainingTime(activeChatRoom?.nextRoundAvailableAt, nowMs);
   const canStartNewChatRound = Boolean(
@@ -319,6 +352,26 @@ export function PerformanceGridPage() {
     },
     [statusSortedSongs],
   );
+  const catalogFilteredSongs = useMemo(
+    () =>
+      catalogStatusFilter === 'ALL'
+        ? statusSortedSongs
+        : statusSortedSongs.filter((song) => song.selectionStatus === catalogStatusFilter),
+    [catalogStatusFilter, statusSortedSongs],
+  );
+  const catalogTotalPages = Math.max(1, Math.ceil(catalogFilteredSongs.length / catalogPageSize));
+  const safeCatalogPage = Math.min(catalogPage, catalogTotalPages);
+  const catalogPageSongs = useMemo(
+    () => {
+      const startIndex = (safeCatalogPage - 1) * catalogPageSize;
+      return catalogFilteredSongs.slice(startIndex, startIndex + catalogPageSize);
+    },
+    [catalogFilteredSongs, safeCatalogPage],
+  );
+  const catalogVisibleStart = catalogFilteredSongs.length
+    ? (safeCatalogPage - 1) * catalogPageSize + 1
+    : 0;
+  const catalogVisibleEnd = Math.min(safeCatalogPage * catalogPageSize, catalogFilteredSongs.length);
   const sidebarSongGroups = useMemo(
     () =>
       selectionStatusOrder
@@ -332,6 +385,19 @@ export function PerformanceGridPage() {
   const confirmedSongs = useMemo(
     () => songs.filter((song) => song.selectionStatus === 'CONFIRMED'),
     [songs],
+  );
+  const mobileFilteredConfirmedSongs = useMemo(
+    () => {
+      const keyword = deferredAssignmentSearch.trim().toLowerCase();
+      if (!keyword) {
+        return confirmedSongs;
+      }
+
+      return confirmedSongs.filter((song) =>
+        `${song.songTitle} ${song.singer}`.toLowerCase().includes(keyword),
+      );
+    },
+    [deferredAssignmentSearch, confirmedSongs],
   );
 
   const songDetailQueries = useQueries({
@@ -376,7 +442,9 @@ export function PerformanceGridPage() {
   const availableUsersForMembers = useMemo(
     () =>
       users.filter(
-        (user) => !performanceMembers.some((member) => member.userId === user.userId),
+        (user) =>
+          user.status === 'ACTIVE' &&
+          !performanceMembers.some((member) => member.userId === user.userId),
       ),
     [performanceMembers, users],
   );
@@ -386,6 +454,14 @@ export function PerformanceGridPage() {
     const nextDrafts = Object.fromEntries(songs.map((song) => [song.performanceSongId, toSongDraft(song)]));
     setSongDrafts((current) => (isSameSongDraftMap(current, nextDrafts) ? current : nextDrafts));
   }, [songs]);
+
+  useEffect(() => {
+    setCatalogPage(1);
+  }, [catalogStatusFilter, selectedPerformanceId]);
+
+  useEffect(() => {
+    setCatalogPage((current) => Math.min(current, catalogTotalPages));
+  }, [catalogTotalPages]);
 
   useEffect(() => {
     setColumnForm((current) => ({
@@ -823,7 +899,7 @@ export function PerformanceGridPage() {
       singer: normalizedSinger,
       orderNo: String(normalizedOrderNo),
       isSheet: currentDraft.isSheet,
-      selectionStatus: currentDraft.selectionStatus,
+      selectionStatus: isAdmin ? currentDraft.selectionStatus : song.selectionStatus,
     };
     const detail = songDetailsById.get(song.performanceSongId);
     const isLockedSong = detail?.chatRoomCreated === true;
@@ -1004,8 +1080,11 @@ export function PerformanceGridPage() {
 
   const openChatRoom = (chatRoomId: number) => {
     setSelectedChatRoomId(chatRoomId);
+    setIsMobileChatRoomsModalOpen(false);
+    setMobileChatRoomSearch('');
     setChatInput('');
     setChatConnectionMessage('');
+    setIsChatActionMenuOpen(false);
   };
 
   const closeChatRoom = () => {
@@ -1016,6 +1095,7 @@ export function PerformanceGridPage() {
     setTargetSessionId('');
     setTypingUsers([]);
     setChatConnectionMessage('');
+    setIsChatActionMenuOpen(false);
   };
 
   const handleChatInputChange = (value: string) => {
@@ -1038,6 +1118,13 @@ export function PerformanceGridPage() {
     });
     chatTransportRef.current?.sendTyping(false);
     setChatInput('');
+  };
+
+  const moveStage = (nextStage: StageId) => {
+    setStage(nextStage);
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 1279px)').matches) {
+      setIsSidebarOpen(false);
+    }
   };
 
   if (selectedPerformanceId === null) {
@@ -1152,9 +1239,10 @@ export function PerformanceGridPage() {
             type="button"
             onClick={() => setIsSidebarOpen(true)}
             aria-label="사이드바 열기"
-            className="fixed left-4 top-24 z-40 inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 bg-white text-xl font-semibold text-slate-700 shadow-[0_12px_28px_rgba(15,23,42,0.14)] transition hover:border-[#5a43ba]/30 hover:text-[#5a43ba] xl:absolute xl:left-0 xl:top-6"
+            className="fixed bottom-4 left-4 z-40 inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-[0_12px_28px_rgba(15,23,42,0.14)] transition hover:border-[#5a43ba]/30 hover:text-[#5a43ba] xl:absolute xl:left-0 xl:top-6 xl:h-11 xl:w-11 xl:rounded-lg xl:px-0 xl:text-xl"
           >
-            ›
+            <span className="text-lg leading-none xl:block">›</span>
+            <span className="xl:hidden">공연 메뉴</span>
           </button>
         ) : null}
 
@@ -1179,7 +1267,25 @@ export function PerformanceGridPage() {
               </Button>
             </div>
 
-            <div className="flex-1 space-y-3 overflow-hidden">
+            <div className="grid grid-cols-3 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+              {stageOptions.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => moveStage(option.id)}
+                  className={cn(
+                    'min-h-10 rounded-lg px-2 text-xs font-semibold transition',
+                    stage === option.id
+                      ? 'bg-white text-[#4d36a2] shadow-sm'
+                      : 'text-slate-500 hover:bg-white/70 hover:text-slate-900',
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+
+            <div className={cn('space-y-3 overflow-hidden', isSidebarSongListOpen && 'flex-1')}>
               <button
                 type="button"
                 className="flex w-full items-center justify-between rounded-lg px-1 py-1 text-left transition hover:bg-slate-50"
@@ -1227,7 +1333,7 @@ export function PerformanceGridPage() {
                             />
                             <button
                               type="button"
-                              onClick={() => setStage('catalog')}
+                              onClick={() => moveStage('catalog')}
                               className="min-w-0 flex-1 text-left"
                             >
                               <span className="block truncate text-sm font-semibold text-slate-800">
@@ -1255,9 +1361,7 @@ export function PerformanceGridPage() {
               </div>
 
               {chatRoomsQuery.isLoading ? (
-                <p className="rounded-[18px] border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-500">
-                  채팅방을 불러오는 중입니다.
-                </p>
+                <SkeletonList count={3} />
               ) : visibleChatRooms.length ? (
                 <div className="space-y-2 xl:max-h-[calc(100vh-18rem)] xl:overflow-y-auto xl:pr-1">
                   {visibleChatRooms.map((room) => (
@@ -1290,20 +1394,126 @@ export function PerformanceGridPage() {
         </div>
 
         <div className="space-y-6">
+          <div className="sticky top-3 z-20 rounded-[18px] border border-slate-200 bg-white/95 p-2 shadow-[0_14px_34px_rgba(15,23,42,0.08)] backdrop-blur xl:hidden">
+            <div className="mb-2 flex items-center justify-between gap-2 px-1">
+              <button
+                type="button"
+                onClick={() => setIsSidebarOpen(true)}
+                className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-slate-900"
+              >
+                {selectedPerformanceTitle}
+              </button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="min-h-9 rounded-lg px-3 text-xs"
+                onClick={() => setIsSidebarOpen(true)}
+              >
+                메뉴
+              </Button>
+            </div>
+            <Button
+              type="button"
+              className="mb-2 min-h-11 w-full rounded-xl"
+              onClick={() => {
+                setMobileChatRoomSearch('');
+                setIsMobileChatRoomsModalOpen(true);
+              }}
+            >
+              채팅방 바로가기
+            </Button>
+            <div className="grid grid-cols-3 gap-1">
+              {stageOptions.map((option) => (
+                <button
+                  key={`mobile-${option.id}`}
+                  type="button"
+                  onClick={() => setStage(option.id)}
+                  className={cn(
+                    'min-h-10 rounded-xl px-2 text-xs font-semibold transition',
+                    stage === option.id
+                      ? 'bg-[#f3efff] text-[#4d36a2]'
+                      : 'text-slate-500 hover:bg-slate-50',
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {selectedPerformanceId && stage === 'catalog' ? (
             <div>
               <Card className="space-y-5">
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="section-kicker">Song List</p>
                     <h3 className="mt-2 text-2xl font-semibold text-slate-900">등록된 곡</h3>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" onClick={() => setStage('assignment')}>
+                  <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+                    <Button variant="ghost" onClick={() => moveStage('assignment')}>
                       세션 배정
                     </Button>
                     <Button onClick={() => setIsCreateSongModalOpen(true)}>곡 추가</Button>
                   </div>
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-4">
+                  <div className="rounded-[8px] border border-slate-200 bg-white px-4 py-3">
+                    <p className="text-xs font-semibold text-slate-500">전체</p>
+                    <p className="mt-1 text-2xl font-semibold text-slate-950">{songs.length}</p>
+                  </div>
+                  <div className="rounded-[8px] border border-emerald-100 bg-emerald-50 px-4 py-3">
+                    <p className="text-xs font-semibold text-emerald-700">확정</p>
+                    <p className="mt-1 text-2xl font-semibold text-emerald-800">
+                      {songsByStatus.CONFIRMED.length}
+                    </p>
+                  </div>
+                  <div className="rounded-[8px] border border-amber-100 bg-amber-50 px-4 py-3">
+                    <p className="text-xs font-semibold text-amber-700">후보</p>
+                    <p className="mt-1 text-2xl font-semibold text-amber-800">
+                      {songsByStatus.NOT_BAD.length}
+                    </p>
+                  </div>
+                  <div className="rounded-[8px] border border-rose-100 bg-rose-50 px-4 py-3">
+                    <p className="text-xs font-semibold text-rose-700">제외</p>
+                    <p className="mt-1 text-2xl font-semibold text-rose-800">
+                      {songsByStatus.OUT.length}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 rounded-[18px] border border-slate-200 bg-slate-50/70 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                    {catalogStatusFilterOptions.map((filter) => {
+                      const isActive = catalogStatusFilter === filter;
+                      const label = filter === 'ALL' ? '전체' : statusMeta[filter].label;
+                      const count = filter === 'ALL' ? songs.length : songsByStatus[filter].length;
+
+                      return (
+                        <button
+                          key={filter}
+                          type="button"
+                          onClick={() => setCatalogStatusFilter(filter)}
+                          className={cn(
+                            'rounded-xl border px-3 py-2 text-sm font-semibold transition',
+                            isActive
+                              ? 'border-[#5a43ba] bg-white text-[#4d36a2] shadow-[0_10px_22px_rgba(90,67,186,0.12)]'
+                              : 'border-slate-200 bg-white/70 text-slate-600 hover:border-[#5a43ba]/30 hover:text-[#4d36a2]',
+                          )}
+                        >
+                          {label}
+                          <span className="ml-1 text-xs text-slate-400">{count}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <p className="text-sm font-semibold text-slate-500">
+                    {catalogFilteredSongs.length
+                      ? `${catalogVisibleStart}-${catalogVisibleEnd} / ${catalogFilteredSongs.length}곡`
+                      : '표시할 곡이 없습니다'}
+                  </p>
                 </div>
 
                 {!songs.length ? (
@@ -1311,9 +1521,14 @@ export function PerformanceGridPage() {
                     title="등록된 곡이 없습니다"
                     description="오른쪽 상단 곡 추가 버튼으로 첫 곡을 등록해 보세요."
                   />
+                ) : !catalogFilteredSongs.length ? (
+                  <StatePanel
+                    title="조건에 맞는 곡이 없습니다"
+                    description="다른 상태 필터를 선택해 주세요."
+                  />
                 ) : (
                   <div className="space-y-3">
-                    {statusSortedSongs.map((song) => {
+                    {catalogPageSongs.map((song) => {
                       const draft = songDrafts[song.performanceSongId] ?? toSongDraft(song);
                       const detail = songDetailsById.get(song.performanceSongId);
                       const isLockedSong = detail?.chatRoomCreated === true;
@@ -1336,7 +1551,7 @@ export function PerformanceGridPage() {
                             }
                           }}
                           className={cn(
-                            'grid gap-3 rounded-[24px] border bg-white p-4 transition md:grid-cols-[40px_minmax(0,1.2fr)_minmax(0,1fr)_110px_176px_108px_auto]',
+                            'grid gap-3 rounded-[20px] border bg-white p-3 transition sm:p-4 md:grid-cols-[40px_minmax(0,1.2fr)_minmax(0,1fr)_110px_176px_108px_auto]',
                             dragOverSongId === song.performanceSongId
                               ? 'border-[#5a43ba] bg-[#fbfaff] shadow-[0_14px_32px_rgba(90,67,186,0.14)] ring-2 ring-[#dfd6ff]'
                               : 'border-slate-200',
@@ -1344,7 +1559,7 @@ export function PerformanceGridPage() {
                               'scale-[0.99] border-[#5a43ba] bg-[#f7f4ff] opacity-80 shadow-[0_16px_36px_rgba(90,67,186,0.16)] ring-2 ring-[#dfd6ff]',
                           )}
                         >
-                          <div className="flex items-end">
+                          <div className="hidden items-end md:flex">
                             <button
                               type="button"
                               draggable={!updateSongOrderMutation.isPending}
@@ -1427,12 +1642,20 @@ export function PerformanceGridPage() {
                           </div>
 
                           <div className="flex flex-col gap-2">
-                            <span className="field-label">현재 상태</span>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="field-label">현재 상태</span>
+                              {!isAdmin ? (
+                                <span className="text-[11px] font-semibold text-slate-500">
+                                  관리자만 변경 가능
+                                </span>
+                              ) : null}
+                            </div>
                             <div className="grid h-10 grid-cols-3 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
                               {selectionStatusOrder.map((status) => (
                                 <button
                                   key={status}
                                   type="button"
+                                  disabled={!isAdmin || updateSongStatusMutation.isPending}
                                   onClick={() => {
                                     const nextDraft = {
                                       ...draft,
@@ -1448,14 +1671,14 @@ export function PerformanceGridPage() {
                                     void persistSongDraft(song, nextDraft);
                                   }}
                                   className={cn(
-                                    'rounded-lg text-xs font-semibold transition',
+                                    'rounded-lg text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50',
                                     draft.selectionStatus === status
                                       ? status === 'CONFIRMED'
                                         ? 'bg-emerald-100 text-emerald-700'
                                         : status === 'OUT'
                                           ? 'bg-rose-100 text-rose-700'
                                           : 'bg-amber-100 text-amber-700'
-                                      : 'text-slate-500 hover:bg-white',
+                                      : 'text-slate-500 hover:bg-white disabled:hover:bg-transparent',
                                   )}
                                 >
                                   {statusMeta[status].label}
@@ -1496,7 +1719,7 @@ export function PerformanceGridPage() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="w-full text-rose-700 hover:bg-rose-50"
+                              className="min-h-10 w-full rounded-xl text-rose-700 hover:bg-rose-50"
                               disabled={deleteSongMutation.isPending || isLockedSong}
                               onClick={() => setSongPendingDelete(song)}
                             >
@@ -1506,6 +1729,34 @@ export function PerformanceGridPage() {
                         </div>
                       );
                     })}
+
+                    {catalogTotalPages > 1 ? (
+                      <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-sm font-semibold text-slate-500">
+                          {safeCatalogPage} / {catalogTotalPages} 페이지
+                        </p>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            disabled={safeCatalogPage <= 1}
+                            onClick={() => setCatalogPage((current) => Math.max(1, current - 1))}
+                          >
+                            이전
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            disabled={safeCatalogPage >= catalogTotalPages}
+                            onClick={() =>
+                              setCatalogPage((current) => Math.min(catalogTotalPages, current + 1))
+                            }
+                          >
+                            다음
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 )}
               </Card>
@@ -1553,13 +1804,13 @@ export function PerformanceGridPage() {
                               <p className="mt-2 text-sm text-slate-600">{song.singer}</p>
                             </div>
 
-                            <div className="grid gap-2 sm:grid-cols-3">
+                            <div className="grid grid-cols-3 gap-2">
                               {selectionStatusOrder.map((status) => (
                                 <Button
                                   key={status}
                                   size="sm"
                                   variant={song.selectionStatus === status ? 'secondary' : 'ghost'}
-                                  disabled={updateSongStatusMutation.isPending}
+                                  disabled={!isAdmin || updateSongStatusMutation.isPending}
                                   onClick={() =>
                                     updateSongStatusMutation.mutate({
                                       performanceId: selectedPerformanceId,
@@ -1593,18 +1844,20 @@ export function PerformanceGridPage() {
                       확정 곡만 표에 나타납니다. 담당자를 바꾸면 바로 반영됩니다.
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
                     <Button
                       variant="secondary"
                       onClick={() => setIsCreateChatRoomsModalOpen(true)}
                     >
                       합주방 생성
                     </Button>
-                    <Button variant="ghost" onClick={() => setStage('catalog')}>
+                    <Button variant="ghost" onClick={() => moveStage('catalog')}>
                       곡 목록
                     </Button>
                     <Button onClick={() => setIsCreateColumnModalOpen(true)}>세션 추가</Button>
-                    <StatusBadge tone="confirmed">{confirmedSongs.length}곡</StatusBadge>
+                    <div className="flex min-h-12 items-center justify-center rounded-2xl bg-emerald-50 px-4 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200 sm:min-h-10 sm:rounded-xl">
+                      {confirmedSongs.length}곡
+                    </div>
                   </div>
                 </div>
 
@@ -1624,75 +1877,154 @@ export function PerformanceGridPage() {
                     description="확정 곡은 준비됐지만 배정할 세션 컬럼이 아직 없습니다."
                   />
                 ) : (
-                  <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-                    <div className="min-w-max">
-                      <div
-                        className="grid gap-3 border-b border-slate-200 bg-slate-100/90 px-4 py-3 text-sm font-semibold text-slate-600"
-                        style={{ gridTemplateColumns: assignmentGridTemplate }}
-                      >
-                        <span className="sticky left-0 z-20 bg-slate-100/90">곡 제목</span>
-                        <span className="sticky left-[210px] z-20 bg-slate-100/90">가수</span>
-                        {columns.map((column) => (
-                          <span key={`assignment-head-${column.performanceSessionColumnId}`}>
-                            {column.sessionName}
-                          </span>
-                        ))}
-                        <span>채팅방</span>
-                      </div>
+                  <>
+                    <div className="space-y-3 md:hidden">
+                      <Input
+                        value={assignmentSearch}
+                        onChange={(event) => setAssignmentSearch(event.target.value)}
+                        placeholder="곡 제목 또는 가수 검색"
+                        className="h-11 rounded-xl bg-white"
+                      />
 
-                      {confirmedSongs.map((song) => {
+                      {!mobileFilteredConfirmedSongs.length ? (
+                        <StatePanel
+                          title="검색 결과가 없습니다"
+                          description="다른 곡 제목이나 가수 이름으로 검색해 주세요."
+                          className="border-0 bg-transparent"
+                        />
+                      ) : null}
+
+                      {mobileFilteredConfirmedSongs.map((song) => {
                         const detail = songDetailsById.get(song.performanceSongId);
                         const draft = assignmentDrafts[song.performanceSongId] ?? {};
 
                         return (
                           <div
-                            key={song.performanceSongId}
-                            className="grid gap-3 border-b border-slate-100 bg-white px-4 py-3 transition last:border-b-0 hover:bg-[#faf9ff]"
-                            style={{ gridTemplateColumns: assignmentGridTemplate }}
+                            key={`assignment-mobile-${song.performanceSongId}`}
+                            className="space-y-4 rounded-[20px] border border-slate-200 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.04)]"
                           >
-                            <div className="sticky left-0 z-10 min-w-0 bg-inherit">
-                              <p className="truncate text-[15px] font-semibold text-slate-900">{song.songTitle}</p>
-                              <p className="mt-0.5 text-xs font-medium text-slate-500">{song.isSheet ? '악보 O' : '악보 X'}</p>
-                            </div>
-
-                            <div className="sticky left-[210px] z-10 flex items-center truncate bg-inherit text-sm font-medium text-slate-700">{song.singer}</div>
-
-                            {columns.map((column) => (
-                              <Select
-                                key={`${song.performanceSongId}-${column.performanceSessionColumnId}`}
-                                value={draft[column.performanceSessionColumnId] ?? ''}
-                                className={cn(
-                                  'h-9 rounded-lg border-slate-300 bg-slate-50 pl-2.5 pr-8 text-[13px] font-medium text-slate-800 focus:ring-2',
-                                  !draft[column.performanceSessionColumnId] && 'text-slate-500',
-                                )}
-                                onChange={(event) => {
-                                  const nextDraft = {
-                                    ...draft,
-                                    [column.performanceSessionColumnId]: event.target.value,
-                                  };
-
-                                  void persistAssignmentDraft(song.performanceSongId, nextDraft);
-                                }}
-                              >
-                                <option value="">{column.isRequired ? '선택 필요' : '미배정'}</option>
-                                {performanceMembers.map((user: PerformanceMember) => (
-                                  <option key={user.userId} value={user.userId}>
-                                    {formatUserAssignmentLabel(user)}
-                                  </option>
-                                ))}
-                              </Select>
-                            ))}
-
-                            <div className="flex items-center">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-base font-semibold text-slate-900">{song.songTitle}</p>
+                                <p className="mt-1 truncate text-sm font-medium text-slate-500">{song.singer}</p>
+                                <p className="mt-1 text-xs font-semibold text-slate-400">
+                                  {song.isSheet ? '악보 O' : '악보 X'}
+                                </p>
+                              </div>
                               <StatusBadge tone={detail?.chatRoomCreated ? 'confirmed' : 'neutral'}>
                                 {detail?.chatRoomCreated ? '생성됨' : '없음'}
                               </StatusBadge>
+                            </div>
+
+                            <div className="space-y-3">
+                              {columns.map((column) => (
+                                <label
+                                  key={`assignment-mobile-${song.performanceSongId}-${column.performanceSessionColumnId}`}
+                                  className="grid gap-1.5"
+                                >
+                                  <span className="text-xs font-semibold text-slate-500">
+                                    {column.sessionName}
+                                  </span>
+                                  <Select
+                                    value={draft[column.performanceSessionColumnId] ?? ''}
+                                    className={cn(
+                                      'h-11 rounded-xl border-slate-300 bg-slate-50 pl-3 pr-9 text-sm font-medium text-slate-800 focus:ring-2',
+                                      !draft[column.performanceSessionColumnId] && 'text-slate-500',
+                                    )}
+                                    onChange={(event) => {
+                                      const nextDraft = {
+                                        ...draft,
+                                        [column.performanceSessionColumnId]: event.target.value,
+                                      };
+
+                                      void persistAssignmentDraft(song.performanceSongId, nextDraft);
+                                    }}
+                                  >
+                                    <option value="">{column.isRequired ? '선택 필요' : '미배정'}</option>
+                                    {performanceMembers.map((user: PerformanceMember) => (
+                                      <option key={user.userId} value={user.userId}>
+                                        {formatUserAssignmentLabel(user)}
+                                      </option>
+                                    ))}
+                                  </Select>
+                                </label>
+                              ))}
                             </div>
                           </div>
                         );
                       })}
                     </div>
-                  </div>
+
+                    <div className="hidden overflow-x-auto rounded-2xl border border-slate-200 bg-white md:block">
+                      <div className="min-w-max">
+                        <div
+                          className="grid gap-3 border-b border-slate-200 bg-slate-100/90 px-4 py-3 text-sm font-semibold text-slate-600"
+                          style={{ gridTemplateColumns: assignmentGridTemplate }}
+                        >
+                          <span className="sticky left-0 z-20 bg-slate-100/90">곡 제목</span>
+                          <span className="sticky left-[210px] z-20 bg-slate-100/90">가수</span>
+                          {columns.map((column) => (
+                            <span key={`assignment-head-${column.performanceSessionColumnId}`}>
+                              {column.sessionName}
+                            </span>
+                          ))}
+                          <span>채팅방</span>
+                        </div>
+
+                        {confirmedSongs.map((song) => {
+                          const detail = songDetailsById.get(song.performanceSongId);
+                          const draft = assignmentDrafts[song.performanceSongId] ?? {};
+
+                          return (
+                            <div
+                              key={song.performanceSongId}
+                              className="grid gap-3 border-b border-slate-100 bg-white px-4 py-3 transition last:border-b-0 hover:bg-[#faf9ff]"
+                              style={{ gridTemplateColumns: assignmentGridTemplate }}
+                            >
+                              <div className="sticky left-0 z-10 min-w-0 bg-inherit">
+                                <p className="truncate text-[15px] font-semibold text-slate-900">{song.songTitle}</p>
+                                <p className="mt-0.5 text-xs font-medium text-slate-500">{song.isSheet ? '악보 O' : '악보 X'}</p>
+                              </div>
+
+                              <div className="sticky left-[210px] z-10 flex items-center truncate bg-inherit text-sm font-medium text-slate-700">{song.singer}</div>
+
+                              {columns.map((column) => (
+                                <Select
+                                  key={`${song.performanceSongId}-${column.performanceSessionColumnId}`}
+                                  value={draft[column.performanceSessionColumnId] ?? ''}
+                                  className={cn(
+                                    'h-9 rounded-lg border-slate-300 bg-slate-50 pl-2.5 pr-8 text-[13px] font-medium text-slate-800 focus:ring-2',
+                                    !draft[column.performanceSessionColumnId] && 'text-slate-500',
+                                  )}
+                                  onChange={(event) => {
+                                    const nextDraft = {
+                                      ...draft,
+                                      [column.performanceSessionColumnId]: event.target.value,
+                                    };
+
+                                    void persistAssignmentDraft(song.performanceSongId, nextDraft);
+                                  }}
+                                >
+                                  <option value="">{column.isRequired ? '선택 필요' : '미배정'}</option>
+                                  {performanceMembers.map((user: PerformanceMember) => (
+                                    <option key={user.userId} value={user.userId}>
+                                      {formatUserAssignmentLabel(user)}
+                                    </option>
+                                  ))}
+                                </Select>
+                              ))}
+
+                              <div className="flex items-center">
+                                <StatusBadge tone={detail?.chatRoomCreated ? 'confirmed' : 'neutral'}>
+                                  {detail?.chatRoomCreated ? '생성됨' : '없음'}
+                                </StatusBadge>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
                 )}
               </Card>
 
@@ -1786,62 +2118,132 @@ export function PerformanceGridPage() {
       </Modal>
 
       <Modal
+        open={isMobileChatRoomsModalOpen}
+        title="채팅방"
+        description="확정 곡의 합주방에 바로 들어갈 수 있습니다."
+        onClose={() => {
+          setIsMobileChatRoomsModalOpen(false);
+          setMobileChatRoomSearch('');
+        }}
+      >
+        {chatRoomsQuery.isLoading ? (
+          <SkeletonList count={4} />
+        ) : visibleChatRooms.length ? (
+          <div className="space-y-3">
+            <Input
+              value={mobileChatRoomSearch}
+              onChange={(event) => setMobileChatRoomSearch(event.target.value)}
+              placeholder="곡 제목 또는 가수 검색"
+              className="h-11 rounded-xl bg-slate-50"
+            />
+
+            {mobileFilteredChatRooms.length ? (
+              <div className="space-y-2">
+                {mobileFilteredChatRooms.map((room) => (
+                  <button
+                    key={`mobile-room-${room.chatRoomId}`}
+                    type="button"
+                    className="group w-full rounded-xl border border-slate-200 bg-white px-4 py-4 text-left transition hover:border-[#5a43ba]/25 hover:bg-[#fbfaff]"
+                    onClick={() => openChatRoom(room.chatRoomId)}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-base font-semibold text-slate-900">{room.songTitle}</p>
+                        <p className="mt-1 truncate text-sm font-medium text-slate-500">{room.singer}</p>
+                      </div>
+                      <span className="shrink-0 rounded-lg bg-[#f3efff] px-3 py-1.5 text-sm font-semibold text-[#5a43ba]">
+                        입장
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <StatePanel
+                title="검색 결과가 없습니다"
+                description="다른 곡 제목이나 가수 이름으로 검색해 주세요."
+                className="border-0 bg-transparent"
+              />
+            )}
+          </div>
+        ) : (
+          <StatePanel
+            title="보이는 채팅방이 없습니다"
+            description="확정 곡으로 합주방을 만들면 여기에 표시됩니다."
+            className="border-0 bg-transparent"
+          />
+        )}
+      </Modal>
+
+      <Modal
         open={selectedChatRoomId !== null}
-        title={activeChatRoom ? `${activeChatRoom.room.songTitle} 채팅방` : '채팅방'}
+        title={activeChatRoom ? activeChatRoom.room.songTitle : '채팅방'}
         size="xl"
         onClose={closeChatRoom}
+        hideCloseButton
         bodyClassName="bg-[#f2f5f8] px-0 py-0 md:px-0"
         headerActions={
           activeChatRoom && isAdmin ? (
             <>
-              <Button
-                size="sm"
-                variant="secondary"
-                title={newChatRemainingText || undefined}
-                disabled={
-                  !selectedPerformanceId ||
-                  !selectedChatRoomId ||
-                  !canStartNewChatRound ||
-                  startChatRoundMutation.isPending
-                }
-                onClick={() => {
-                  if (!selectedPerformanceId || !selectedChatRoomId) return;
-                  startChatRoundMutation.mutate({
-                    performanceId: selectedPerformanceId,
-                    chatRoomId: selectedChatRoomId,
-                  });
-                }}
+              <button
+                type="button"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xl font-semibold leading-none text-slate-700 transition hover:bg-slate-200 sm:hidden"
+                aria-label="채팅방 관리 메뉴"
+                aria-expanded={isChatActionMenuOpen}
+                onClick={() => setIsChatActionMenuOpen((current) => !current)}
               >
-                {startChatRoundMutation.isPending
-                  ? '시작 중...'
-                  : newChatRemainingText
-                    ? newChatRemainingText
-                    : '새채팅 시작'}
-              </Button>
-              <Button
-                size="sm"
-                disabled={
-                  !selectedPerformanceId ||
-                  !selectedChatRoomId ||
-                  !activeChatRoom.room.currentRound ||
-                  activeChatRoom.currentRoundSummarized ||
-                  createAiFeedbackMutation.isPending
-                }
-                onClick={() => {
-                  if (!selectedPerformanceId || !selectedChatRoomId || !activeChatRoom.room.currentRound) return;
-                  createAiFeedbackMutation.mutate({
-                    performanceId: selectedPerformanceId,
-                    chatRoomId: selectedChatRoomId,
-                    chatRoundId: activeChatRoom.room.currentRound.chatRoundId,
-                  });
-                }}
-              >
-                {createAiFeedbackMutation.isPending
-                  ? '생성 중...'
-                  : activeChatRoom.currentRoundSummarized
-                    ? '생성됨'
-                    : '피드백 생성'}
-              </Button>
+                ≡
+              </button>
+              <div className="hidden items-center gap-2 sm:flex">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  title={newChatRemainingText || undefined}
+                  disabled={
+                    !selectedPerformanceId ||
+                    !selectedChatRoomId ||
+                    !canStartNewChatRound ||
+                    startChatRoundMutation.isPending
+                  }
+                  onClick={() => {
+                    if (!selectedPerformanceId || !selectedChatRoomId) return;
+                    startChatRoundMutation.mutate({
+                      performanceId: selectedPerformanceId,
+                      chatRoomId: selectedChatRoomId,
+                    });
+                  }}
+                >
+                  {startChatRoundMutation.isPending
+                    ? '시작 중...'
+                    : newChatRemainingText
+                      ? newChatRemainingText
+                      : '새채팅 시작'}
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={
+                    !selectedPerformanceId ||
+                    !selectedChatRoomId ||
+                    !activeChatRoom.room.currentRound ||
+                    activeChatRoom.currentRoundSummarized ||
+                    createAiFeedbackMutation.isPending
+                  }
+                  onClick={() => {
+                    if (!selectedPerformanceId || !selectedChatRoomId || !activeChatRoom.room.currentRound) return;
+                    createAiFeedbackMutation.mutate({
+                      performanceId: selectedPerformanceId,
+                      chatRoomId: selectedChatRoomId,
+                      chatRoundId: activeChatRoom.room.currentRound.chatRoundId,
+                    });
+                  }}
+                >
+                  {createAiFeedbackMutation.isPending
+                    ? '생성 중...'
+                    : activeChatRoom.currentRoundSummarized
+                      ? '생성됨'
+                      : '피드백 생성'}
+                </Button>
+              </div>
             </>
           ) : null
         }
@@ -1855,11 +2257,11 @@ export function PerformanceGridPage() {
                   </div>
                 </div>
               ) : null}
-              <div className="grid gap-2 md:grid-cols-[220px_minmax(0,1fr)_92px]">
+              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_92px] md:grid-cols-[220px_minmax(0,1fr)_92px]">
                 <Select
                   value={targetSessionId}
                   onChange={(event) => setTargetSessionId(event.target.value)}
-                  className="h-11 rounded-xl bg-slate-50"
+                  className="h-11 rounded-xl bg-slate-50 sm:col-span-2 md:col-span-1"
                   disabled={!assignableChatSessions.length}
                   aria-label="피드백할 세션 선택"
                 >
@@ -1919,10 +2321,74 @@ export function PerformanceGridPage() {
         }
       >
         {chatRoomDetailQuery.isLoading ? (
-          <StatePanel title="합주방을 불러오는 중입니다" description="잠시만 기다려 주세요." />
+          <div className="flex min-h-[58dvh] flex-col sm:min-h-[58vh]">
+            <div className="border-b border-slate-100 bg-white px-4 py-4 sm:px-6">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="mt-2 h-3 w-56" />
+            </div>
+            <div className="flex-1 space-y-4 bg-slate-50 px-4 py-5 sm:px-6">
+              <Skeleton className="h-16 w-4/5 rounded-2xl" />
+              <Skeleton className="ml-auto h-16 w-3/4 rounded-2xl" />
+              <Skeleton className="h-20 w-5/6 rounded-2xl" />
+            </div>
+          </div>
         ) : activeChatRoom ? (
-          <div className="flex min-h-[58vh] flex-col">
-            <div className="min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(circle_at_20%_0%,rgba(90,67,186,0.06),transparent_28%),linear-gradient(180deg,#f6f8fb_0%,#eef3f7_100%)] px-4 py-5 sm:px-6">
+          <div className="flex min-h-[58dvh] flex-col sm:min-h-[58vh]">
+            <div className="min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(circle_at_20%_0%,rgba(90,67,186,0.06),transparent_28%),linear-gradient(180deg,#f6f8fb_0%,#eef3f7_100%)] px-3 py-4 sm:px-6 sm:py-5">
+              {isChatActionMenuOpen && isAdmin ? (
+                <div className="mb-4 grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_12px_28px_rgba(15,23,42,0.08)] sm:hidden">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    title={newChatRemainingText || undefined}
+                    disabled={
+                      !selectedPerformanceId ||
+                      !selectedChatRoomId ||
+                      !canStartNewChatRound ||
+                      startChatRoundMutation.isPending
+                    }
+                    onClick={() => {
+                      if (!selectedPerformanceId || !selectedChatRoomId) return;
+                      setIsChatActionMenuOpen(false);
+                      startChatRoundMutation.mutate({
+                        performanceId: selectedPerformanceId,
+                        chatRoomId: selectedChatRoomId,
+                      });
+                    }}
+                  >
+                    {startChatRoundMutation.isPending
+                      ? '시작 중...'
+                      : newChatRemainingText
+                        ? newChatRemainingText
+                        : '새채팅 시작'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={
+                      !selectedPerformanceId ||
+                      !selectedChatRoomId ||
+                      !activeChatRoom.room.currentRound ||
+                      activeChatRoom.currentRoundSummarized ||
+                      createAiFeedbackMutation.isPending
+                    }
+                    onClick={() => {
+                      if (!selectedPerformanceId || !selectedChatRoomId || !activeChatRoom.room.currentRound) return;
+                      setIsChatActionMenuOpen(false);
+                      createAiFeedbackMutation.mutate({
+                        performanceId: selectedPerformanceId,
+                        chatRoomId: selectedChatRoomId,
+                        chatRoundId: activeChatRoom.room.currentRound.chatRoundId,
+                      });
+                    }}
+                  >
+                    {createAiFeedbackMutation.isPending
+                      ? '생성 중...'
+                      : activeChatRoom.currentRoundSummarized
+                        ? '생성됨'
+                        : '피드백 생성'}
+                  </Button>
+                </div>
+              ) : null}
               {chatConnectionMessage ? (
                 <div className="mx-auto mb-4 max-w-md">
                   <InlineNotice tone="error">{chatConnectionMessage}</InlineNotice>
@@ -1944,7 +2410,7 @@ export function PerformanceGridPage() {
                       key={chatMessage.messageId}
                       className={cn('flex gap-2', isMine ? 'justify-end' : 'justify-start')}
                     >
-                      <div className={cn('max-w-[78%] space-y-1 sm:max-w-[64%]', isMine && 'items-end text-right')}>
+                      <div className={cn('max-w-[86%] space-y-1 sm:max-w-[64%]', isMine && 'items-end text-right')}>
                         {!isMine ? (
                           <p className="px-1 text-xs font-semibold text-slate-700">
                             {chatMessage.senderName}
@@ -1956,7 +2422,7 @@ export function PerformanceGridPage() {
                         <div className={cn('flex items-end gap-2', isMine && 'flex-row-reverse')}>
                           <div
                             className={cn(
-                              'rounded-2xl border px-4 py-3 text-left text-sm leading-6 shadow-[0_8px_20px_rgba(15,23,42,0.05)]',
+                              'rounded-2xl border px-3 py-2.5 text-left text-sm leading-6 shadow-[0_8px_20px_rgba(15,23,42,0.05)] sm:px-4 sm:py-3',
                               isMine
                                 ? 'rounded-tr-md border-[#dfd6ff] bg-[#f3efff] text-[#241b42]'
                                 : 'rounded-tl-md border-slate-200 bg-white text-slate-900',

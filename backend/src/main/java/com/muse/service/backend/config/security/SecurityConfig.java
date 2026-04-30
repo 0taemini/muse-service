@@ -1,5 +1,6 @@
 package com.muse.service.backend.config.security;
 
+import com.muse.service.backend.config.logging.RequestLoggingFilter;
 import com.muse.service.backend.security.handler.CustomAccessDeniedHandler;
 import com.muse.service.backend.security.handler.CustomAuthenticationEntryPoint;
 import com.muse.service.backend.security.jwt.JwtAuthenticationFilter;
@@ -7,6 +8,7 @@ import com.muse.service.backend.security.service.UserDetailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -30,6 +32,8 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        RequestLoggingFilter requestLoggingFilter = requestLoggingFilter();
+
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -44,13 +48,24 @@ public class SecurityConfig {
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/users/*/status").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/performances/*/songs/*/status").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/performances/*/members").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/performances/*/members/*").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(requestLoggingFilter, JwtAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    @Bean
+    public RequestLoggingFilter requestLoggingFilter() {
+        return new RequestLoggingFilter();
     }
 
     @Bean

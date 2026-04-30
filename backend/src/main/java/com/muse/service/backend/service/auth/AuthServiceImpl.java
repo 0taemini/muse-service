@@ -21,6 +21,7 @@ import com.muse.service.backend.security.model.CustomUserDetails;
 import com.muse.service.backend.service.user.UserService;
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -32,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthServiceImpl implements AuthService {
 
     private static final String LOGIN_FAILED_COUNT_PREFIX = "auth:login:failed:";
@@ -57,6 +59,7 @@ public class AuthServiceImpl implements AuthService {
         String loginIpFailedCountKey = LOGIN_IP_FAILED_COUNT_PREFIX + normalizeClientIp(clientIp);
         if (getLoginFailedCount(loginFailedCountKey) >= MAX_LOGIN_ATTEMPTS
                 || getLoginFailedCount(loginIpFailedCountKey) >= MAX_LOGIN_ATTEMPTS) {
+            log.warn("로그인 시도 횟수 초과: email={}, clientIp={}", maskEmail(normalizedEmail), normalizeClientIp(clientIp));
             throw new CustomException(ErrorCode.LOGIN_ATTEMPT_EXCEEDED);
         }
 
@@ -80,6 +83,7 @@ public class AuthServiceImpl implements AuthService {
                     refreshToken,
                     Duration.ofMillis(jwtTokenProvider.getRefreshTokenExpirationMs())
             );
+            log.info("로그인 성공: userId={}, role={}", userDetails.getUserId(), userDetails.getRole());
             return new AuthTokenResult(
                     accessToken,
                     refreshToken,
@@ -92,8 +96,12 @@ public class AuthServiceImpl implements AuthService {
             int failedCount = incrementLoginFailedCount(loginFailedCountKey);
             int ipFailedCount = incrementLoginFailedCount(loginIpFailedCountKey);
             if (failedCount >= MAX_LOGIN_ATTEMPTS || ipFailedCount >= MAX_LOGIN_ATTEMPTS) {
+                log.warn("로그인 실패 후 시도 횟수 초과: email={}, clientIp={}, failedCount={}, ipFailedCount={}",
+                        maskEmail(normalizedEmail), normalizeClientIp(clientIp), failedCount, ipFailedCount);
                 throw new CustomException(ErrorCode.LOGIN_ATTEMPT_EXCEEDED);
             }
+            log.warn("로그인 실패: email={}, clientIp={}, failedCount={}, ipFailedCount={}",
+                    maskEmail(normalizedEmail), normalizeClientIp(clientIp), failedCount, ipFailedCount);
             throw new CustomException(ErrorCode.AUTHENTICATION_FAILED);
         }
     }
@@ -127,6 +135,7 @@ public class AuthServiceImpl implements AuthService {
                 newRefreshToken,
                 Duration.ofMillis(jwtTokenProvider.getRefreshTokenExpirationMs())
         );
+        log.info("토큰 재발급 완료: email={}", maskEmail(email));
 
         return new AuthTokenResult(
                 newAccessToken,
@@ -158,6 +167,7 @@ public class AuthServiceImpl implements AuthService {
             return;
         }
         redisTemplate.delete(refreshTokenKey(email));
+        log.info("로그아웃 완료: email={}", maskEmail(email));
     }
 
     @Override
@@ -166,6 +176,7 @@ public class AuthServiceImpl implements AuthService {
         AllUser allUser = findRegisteredAllUser(request.name(), request.cohort(), request.phone());
         validateNotLinkedAllUser(allUser);
         phoneVerificationService.issueCode(allUser.getName(), allUser.getCohort(), allUser.getPhone());
+        log.info("회원가입 휴대폰 인증번호 요청 완료: allUserId={}", allUser.getAllUserId());
     }
 
     @Override
@@ -179,6 +190,7 @@ public class AuthServiceImpl implements AuthService {
                 allUser.getPhone(),
                 request.code()
         );
+        log.info("회원가입 휴대폰 인증 완료: allUserId={}", allUser.getAllUserId());
         return new VerificationTokenResponse(token);
     }
 
@@ -206,6 +218,7 @@ public class AuthServiceImpl implements AuthService {
                 request.nickname()
         ));
         phoneVerificationService.deleteVerifiedToken(verificationToken);
+        log.info("회원가입 완료: userId={}, allUserId={}", createdUser.userId(), allUser.getAllUserId());
         return createdUser;
     }
 
@@ -215,6 +228,7 @@ public class AuthServiceImpl implements AuthService {
         AllUser allUser = findRegisteredAllUser(request.name(), request.cohort(), request.phone());
         validateLinkedAllUser(allUser);
         phoneVerificationService.issueCode(allUser.getName(), allUser.getCohort(), allUser.getPhone());
+        log.info("이메일 찾기 인증번호 요청 완료: allUserId={}", allUser.getAllUserId());
     }
 
     @Override
@@ -229,6 +243,7 @@ public class AuthServiceImpl implements AuthService {
                 request.code()
         );
         phoneVerificationService.deleteVerifiedToken(verificationToken);
+        log.info("이메일 찾기 완료: userId={}", user.getUserId());
         return new FindEmailResponse(user.getEmail());
     }
 
@@ -238,6 +253,7 @@ public class AuthServiceImpl implements AuthService {
         AllUser allUser = findRegisteredAllUser(request.name(), request.cohort(), request.phone());
         validateLinkedAllUser(allUser);
         phoneVerificationService.issueCode(allUser.getName(), allUser.getCohort(), allUser.getPhone());
+        log.info("비밀번호 재설정 인증번호 요청 완료: allUserId={}", allUser.getAllUserId());
     }
 
     @Override
@@ -251,6 +267,7 @@ public class AuthServiceImpl implements AuthService {
                 allUser.getPhone(),
                 request.code()
         );
+        log.info("비밀번호 재설정 휴대폰 인증 완료: allUserId={}", allUser.getAllUserId());
         return new VerificationTokenResponse(token);
     }
 
@@ -273,6 +290,7 @@ public class AuthServiceImpl implements AuthService {
         User user = findLinkedActiveUser(allUser);
         user.changePassword(passwordEncoder.encode(request.newPassword().trim()));
         phoneVerificationService.deleteVerifiedToken(verificationToken);
+        log.info("비밀번호 재설정 완료: userId={}", user.getUserId());
     }
 
     private AllUser findRegisteredAllUser(String name, Integer cohort, String phone) {
@@ -342,5 +360,16 @@ public class AuthServiceImpl implements AuthService {
 
     private String refreshTokenKey(String email) {
         return REFRESH_TOKEN_PREFIX + email;
+    }
+
+    private String maskEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return "unknown";
+        }
+        int atIndex = email.indexOf('@');
+        if (atIndex <= 1) {
+            return "***" + (atIndex >= 0 ? email.substring(atIndex) : "");
+        }
+        return email.charAt(0) + "***" + email.substring(atIndex);
     }
 }
