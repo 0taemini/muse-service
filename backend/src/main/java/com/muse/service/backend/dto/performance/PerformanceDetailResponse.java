@@ -9,16 +9,22 @@ public record PerformanceDetailResponse(
         String title,
         int songCount,
         LocalDateTime createdAt,
-        List<PerformanceSongResponse> songs
+        List<PerformanceSongResponse> songs,
+        List<PerformanceMemberResponse> members
 ) {
 
-    public static PerformanceDetailResponse from(Performance performance, List<PerformanceSongResponse> songs) {
+    public static PerformanceDetailResponse from(
+            Performance performance,
+            List<PerformanceSongResponse> songs,
+            List<PerformanceMemberResponse> members
+    ) {
         return new PerformanceDetailResponse(
                 performance.getPerformanceId(),
                 performance.getTitle(),
                 songs.size(),
                 performance.getCreatedAt(),
-                songs
+                songs,
+                members
         );
     }
 }

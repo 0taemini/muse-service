@@ -5,11 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.muse.service.backend.global.exception.CustomException;
 import com.muse.service.backend.global.exception.ErrorCode;
 import com.muse.service.backend.service.sms.SmsService;
-
 import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -39,27 +37,26 @@ public class RedisPhoneVerificationService implements PhoneVerificationService {
         String identityKey = verificationKey(name, cohort, phone);
         String cooldownKey = VERIFICATION_REQUEST_COOLDOWN_PREFIX + identityKey;
         if (Boolean.TRUE.equals(redisTemplate.hasKey(cooldownKey))) {
+            log.warn("휴대폰 인증번호 요청 제한: phone={}, cohort={}", maskPhone(phone), cohort);
             throw new CustomException(ErrorCode.PHONE_VERIFICATION_REQUEST_TOO_FREQUENT);
         }
 
         String code = String.valueOf(ThreadLocalRandom.current().nextInt(100000, 1_000_000));
         String codeKey = VERIFICATION_CODE_PREFIX + identityKey;
 
-
         solapiSmsService.sendVerificationCode(phone, code);
 
         try {
             redisTemplate.opsForValue().set(codeKey, code, VERIFICATION_CODE_TTL);
             redisTemplate.opsForValue().set(cooldownKey, "1", REQUEST_COOLDOWN_TTL);
-        } catch (Exception e) {
+        } catch (Exception exception) {
             redisTemplate.delete(codeKey);
             redisTemplate.delete(cooldownKey);
-            log.error("redis에 인증번호 저장 실패: {}", e.getMessage(), e);
+            log.error("Redis 인증번호 저장 실패: phone={}, cohort={}", maskPhone(phone), cohort, exception);
             throw new CustomException(ErrorCode.PHONE_VERIFICATION_CODE_NOT_SET);
         }
 
-        // 민감 정보라 운영환경에서는 지울 예정
-        log.info("[PHONE-VERIFY] phone={}, cohort={}, smsSent=true", normalizePhone(phone), cohort);
+        log.info("휴대폰 인증번호 발송 및 저장 완료: phone={}, cohort={}", maskPhone(phone), cohort);
     }
 
     @Override
@@ -71,10 +68,13 @@ public class RedisPhoneVerificationService implements PhoneVerificationService {
         int failedCount = parseFailedCount(redisTemplate.opsForValue().get(failedCountKey));
 
         if (failedCount >= MAX_VERIFY_ATTEMPTS) {
+            log.warn("휴대폰 인증 시도 횟수 초과: phone={}, cohort={}, failedCount={}",
+                    maskPhone(phone), cohort, failedCount);
             throw new CustomException(ErrorCode.PHONE_VERIFICATION_ATTEMPT_EXCEEDED);
         }
 
         if (storedCode == null) {
+            log.warn("휴대폰 인증번호 만료 또는 없음: phone={}, cohort={}", maskPhone(phone), cohort);
             throw new CustomException(ErrorCode.PHONE_VERIFICATION_CODE_EXPIRED);
         }
 
@@ -82,8 +82,12 @@ public class RedisPhoneVerificationService implements PhoneVerificationService {
             int nextFailedCount = failedCount + 1;
             redisTemplate.opsForValue().set(failedCountKey, String.valueOf(nextFailedCount), VERIFICATION_CODE_TTL);
             if (nextFailedCount >= MAX_VERIFY_ATTEMPTS) {
+                log.warn("휴대폰 인증 실패 후 시도 횟수 초과: phone={}, cohort={}, failedCount={}",
+                        maskPhone(phone), cohort, nextFailedCount);
                 throw new CustomException(ErrorCode.PHONE_VERIFICATION_ATTEMPT_EXCEEDED);
             }
+            log.warn("휴대폰 인증번호 불일치: phone={}, cohort={}, failedCount={}",
+                    maskPhone(phone), cohort, nextFailedCount);
             throw new CustomException(ErrorCode.PHONE_VERIFICATION_CODE_INVALID);
         }
 
@@ -98,11 +102,13 @@ public class RedisPhoneVerificationService implements PhoneVerificationService {
                     VERIFIED_TOKEN_TTL
             );
         } catch (JsonProcessingException exception) {
+            log.error("인증 완료 토큰 저장 payload 생성 실패: phone={}, cohort={}", maskPhone(phone), cohort, exception);
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
 
         redisTemplate.delete(codeKey);
         redisTemplate.delete(failedCountKey);
+        log.info("휴대폰 인증 완료 토큰 발급 완료: phone={}, cohort={}", maskPhone(phone), cohort);
         return verificationToken;
     }
 
@@ -112,13 +118,14 @@ public class RedisPhoneVerificationService implements PhoneVerificationService {
         String payload = redisTemplate.opsForValue().get(tokenKey);
 
         if (payload == null) {
+            log.warn("유효하지 않은 인증 완료 토큰 요청");
             throw new CustomException(ErrorCode.INVALID_VERIFICATION_TOKEN);
         }
 
         try {
-            VerifiedIdentity verifiedIdentity = objectMapper.readValue(payload, VerifiedIdentity.class);
-            return verifiedIdentity;
+            return objectMapper.readValue(payload, VerifiedIdentity.class);
         } catch (JsonProcessingException exception) {
+            log.error("인증 완료 토큰 payload 파싱 실패", exception);
             throw new CustomException(ErrorCode.INVALID_VERIFICATION_TOKEN);
         }
     }
@@ -129,20 +136,20 @@ public class RedisPhoneVerificationService implements PhoneVerificationService {
         redisTemplate.delete(tokenKey);
     }
 
-    /**
-     * redis에서 자정할 키값을 만들어줄 method
-     *
-     * @param name
-     * @param cohort
-     * @param phone
-     * @return
-     */
     private String verificationKey(String name, Integer cohort, String phone) {
         return name + "|" + cohort + "|" + normalizePhone(phone);
     }
 
     private String normalizePhone(String phone) {
         return phone.replaceAll("[^0-9]", "");
+    }
+
+    private String maskPhone(String phone) {
+        String normalized = normalizePhone(phone);
+        if (normalized.length() < 8) {
+            return "****";
+        }
+        return normalized.substring(0, 3) + "****" + normalized.substring(normalized.length() - 4);
     }
 
     private int parseFailedCount(String raw) {

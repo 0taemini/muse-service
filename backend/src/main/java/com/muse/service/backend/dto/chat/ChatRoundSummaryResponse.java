@@ -7,7 +7,9 @@ public record ChatRoundSummaryResponse(
         Integer chatRoundId,
         ChatRound.RoundStatus status,
         LocalDateTime openedAt,
-        LocalDateTime closedAt
+        LocalDateTime closedAt,
+        LocalDateTime summarizedAt,
+        Integer summarizedByUserId
 ) {
 
     public static ChatRoundSummaryResponse from(ChatRound chatRound) {
@@ -15,7 +17,9 @@ public record ChatRoundSummaryResponse(
                 chatRound.getChatRoundId(),
                 chatRound.getStatus(),
                 chatRound.getOpenedAt(),
-                chatRound.getClosedAt()
+                chatRound.getClosedAt(),
+                chatRound.getSummarizedAt(),
+                chatRound.getSummarizedBy() == null ? null : chatRound.getSummarizedBy().getUserId()
         );
     }
 }

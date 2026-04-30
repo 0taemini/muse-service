@@ -1,7 +1,8 @@
 import { Suspense, lazy, type ReactNode } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { OperationsLayoutV2 } from '@shared/components/layout/operations-layout-v2';
-import { ProtectedRoute, PublicOnlyRoute } from '@app/route-guards';
+import { AdminRoute, ProtectedRoute, PublicOnlyRoute } from '@app/route-guards';
+import { RouteErrorPage } from '@app/route-error-page';
 import { RouteFallback } from '@app/route-fallback';
 
 const HomeDashboardPageV2 = lazy(() =>
@@ -40,6 +41,18 @@ const PerformanceGridPage = lazy(() =>
   })),
 );
 
+const AdminUsersPage = lazy(() =>
+  import('@features/admin/pages/admin-users-page').then((module) => ({
+    default: module.AdminUsersPage,
+  })),
+);
+
+const AdminAllUsersPage = lazy(() =>
+  import('@features/admin/pages/admin-all-users-page').then((module) => ({
+    default: module.AdminAllUsersPage,
+  })),
+);
+
 function withSuspense(page: ReactNode) {
   return <Suspense fallback={<RouteFallback />}>{page}</Suspense>;
 }
@@ -48,6 +61,7 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: <OperationsLayoutV2 />,
+    errorElement: <RouteErrorPage />,
     children: [
       { index: true, element: withSuspense(<HomeDashboardPageV2 />) },
       {
@@ -64,8 +78,16 @@ export const router = createBrowserRouter([
           { path: 'performances', element: withSuspense(<PerformanceGridPage />) },
           { path: 'performances-lab', element: <Navigate to="/performances" replace /> },
           { path: 'me', element: withSuspense(<MyPageV2 />) },
+          {
+            element: <AdminRoute />,
+            children: [
+              { path: 'admin/users', element: withSuspense(<AdminUsersPage />) },
+              { path: 'admin/all-users', element: withSuspense(<AdminAllUsersPage />) },
+            ],
+          },
         ],
       },
+      { path: '*', element: <RouteErrorPage kind="not-found" /> },
     ],
   },
 ]);

@@ -79,6 +79,16 @@ public class ChatRound {
         }
     }
 
+    public void close() {
+        this.status = RoundStatus.CLOSED;
+        this.closedAt = LocalDateTime.now();
+    }
+
+    public void markSummarized(User summarizedBy) {
+        this.summarizedAt = LocalDateTime.now();
+        this.summarizedBy = summarizedBy;
+    }
+
     public enum RoundStatus {
         OPEN, CLOSED
     }

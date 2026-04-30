@@ -20,4 +20,11 @@ public interface PerformanceSongSessionRepository extends JpaRepository<Performa
     );
 
     List<PerformanceSongSession> findAllByPerformanceSessionColumn_PerformanceSessionColumnId(Integer performanceSessionColumnId);
+
+    List<PerformanceSongSession> findAllByPerformanceSong_Performance_PerformanceIdAndAssignedUser_UserId(
+            Integer performanceId,
+            Integer userId
+    );
+
+    List<PerformanceSongSession> findAllByAssignedUser_UserId(Integer userId);
 }

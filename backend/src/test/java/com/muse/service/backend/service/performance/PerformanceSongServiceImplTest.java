@@ -22,6 +22,7 @@ import com.muse.service.backend.entity.User;
 import com.muse.service.backend.global.exception.CustomException;
 import com.muse.service.backend.global.exception.ErrorCode;
 import com.muse.service.backend.repository.ChatRoomRepository;
+import com.muse.service.backend.repository.PerformanceMemberRepository;
 import com.muse.service.backend.repository.PerformanceRepository;
 import com.muse.service.backend.repository.PerformanceSessionColumnRepository;
 import com.muse.service.backend.repository.PerformanceSongRepository;
@@ -42,6 +43,9 @@ class PerformanceSongServiceImplTest {
 
     @Mock
     private PerformanceRepository performanceRepository;
+
+    @Mock
+    private PerformanceMemberRepository performanceMemberRepository;
 
     @Mock
     private PerformanceSongRepository performanceSongRepository;
@@ -67,6 +71,7 @@ class PerformanceSongServiceImplTest {
     void setUp() {
         performanceSongService = new PerformanceSongServiceImpl(
                 performanceRepository,
+                performanceMemberRepository,
                 performanceSongRepository,
                 performanceSongSessionRepository,
                 performanceSessionColumnRepository,
@@ -128,17 +133,18 @@ class PerformanceSongServiceImplTest {
                 new PerformanceSongUpdateRequest("New Song", "New Singer", true, 2)
         )).isInstanceOfSatisfying(CustomException.class, exception -> {
             assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PERFORMANCE_SONG_LOCKED);
-            assertThat(exception).hasMessage("채팅방이 생성된 뒤에는 세션 구조만 수정할 수 있습니다.");
+            assertThat(exception).hasMessage("채팅방이 생성된 뒤에는 세션 구조만 수정할 수 없습니다.");
         });
     }
 
     @Test
-    void updateStatus_allowsNonAuthorBeforeChatRoom() {
+    void updateStatus_allowsAdminOnly() {
         Performance performance = performance(1);
         PerformanceSong performanceSong = performanceSong(100, performance, user(3), "Song", "Singer", 1);
+        User admin = user(9, User.UserRole.ADMIN);
 
         when(performanceRepository.findById(1)).thenReturn(Optional.of(performance));
-        when(userRepository.findById(9)).thenReturn(Optional.of(user(9)));
+        when(userRepository.findById(9)).thenReturn(Optional.of(admin));
         when(performanceSongRepository.findByPerformanceSongIdAndPerformance_PerformanceId(100, 1))
                 .thenReturn(Optional.of(performanceSong));
         when(performanceSongSessionRepository.findAllByPerformanceSong_PerformanceSongIdOrderByDisplayOrderAsc(100))
@@ -153,6 +159,19 @@ class PerformanceSongServiceImplTest {
         );
 
         assertThat(response.selectionStatus()).isEqualTo(PerformanceSong.SelectionStatus.OUT);
+    }
+
+    @Test
+    void updateStatus_whenUserIsNotAdmin_throwsAccessDenied() {
+        when(userRepository.findById(9)).thenReturn(Optional.of(user(9)));
+
+        assertThatThrownBy(() -> performanceSongService.updateStatus(
+                1,
+                100,
+                9,
+                new PerformanceSongStatusUpdateRequest(PerformanceSong.SelectionStatus.OUT)
+        )).isInstanceOfSatisfying(CustomException.class, exception ->
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.ACCESS_DENIED));
     }
 
     @Test
@@ -210,7 +229,12 @@ class PerformanceSongServiceImplTest {
                 .thenReturn(Optional.empty());
         when(performanceSongSessionRepository.save(any(PerformanceSongSession.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        when(userRepository.findById(7)).thenReturn(Optional.of(assigned));
+        when(userRepository.findByUserIdAndStatus(7, User.UserStatus.ACTIVE)).thenReturn(Optional.of(assigned));
+        when(performanceMemberRepository.existsByPerformance_PerformanceIdAndUser_UserIdAndUser_Status(
+                1,
+                7,
+                User.UserStatus.ACTIVE
+        )).thenReturn(true);
         when(chatRoomRepository.existsByPerformanceSong_PerformanceSongId(100)).thenReturn(false);
 
         var response = performanceSongService.updateSessions(
@@ -238,6 +262,10 @@ class PerformanceSongServiceImplTest {
     }
 
     private User user(Integer id) {
+        return user(id, User.UserRole.USER);
+    }
+
+    private User user(Integer id, User.UserRole role) {
         User user = User.builder()
                 .allUser(null)
                 .name("User " + id)
@@ -248,7 +276,7 @@ class PerformanceSongServiceImplTest {
                 .representativeSessionType(null)
                 .rank(User.UserRank.ACTIVE)
                 .status(User.UserStatus.ACTIVE)
-                .role(User.UserRole.USER)
+                .role(role)
                 .build();
         ReflectionTestUtils.setField(user, "userId", id);
         return user;

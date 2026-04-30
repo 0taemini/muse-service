@@ -2,26 +2,32 @@ package com.muse.service.backend.service.performance;
 
 import com.muse.service.backend.dto.performance.PerformanceCreateRequest;
 import com.muse.service.backend.dto.performance.PerformanceDetailResponse;
+import com.muse.service.backend.dto.performance.PerformanceMemberResponse;
 import com.muse.service.backend.dto.performance.PerformanceSongResponse;
 import com.muse.service.backend.dto.performance.PerformanceSummaryResponse;
 import com.muse.service.backend.entity.Performance;
+import com.muse.service.backend.entity.User;
 import com.muse.service.backend.global.exception.CustomException;
 import com.muse.service.backend.global.exception.ErrorCode;
+import com.muse.service.backend.repository.PerformanceMemberRepository;
 import com.muse.service.backend.repository.PerformanceRepository;
 import com.muse.service.backend.repository.PerformanceSongRepository;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PerformanceServiceImpl implements PerformanceService {
 
     private final PerformanceRepository performanceRepository;
     private final PerformanceSongRepository performanceSongRepository;
+    private final PerformanceMemberRepository performanceMemberRepository;
 
     @Override
     @Transactional
@@ -31,8 +37,9 @@ public class PerformanceServiceImpl implements PerformanceService {
                         .title(request.title().trim())
                         .build()
         );
+        log.info("공연 생성 완료: performanceId={}, title={}", performance.getPerformanceId(), performance.getTitle());
 
-        return PerformanceDetailResponse.from(performance, Collections.emptyList());
+        return PerformanceDetailResponse.from(performance, Collections.emptyList(), Collections.emptyList());
     }
 
     @Override
@@ -73,6 +80,15 @@ public class PerformanceServiceImpl implements PerformanceService {
                 .map(PerformanceSongResponse::from)
                 .toList();
 
-        return PerformanceDetailResponse.from(performance, songs);
+        List<PerformanceMemberResponse> members = performanceMemberRepository
+                .findAllByPerformance_PerformanceIdAndUser_StatusOrderByCreatedAtAsc(
+                        performanceId,
+                        User.UserStatus.ACTIVE
+                )
+                .stream()
+                .map(PerformanceMemberResponse::from)
+                .toList();
+
+        return PerformanceDetailResponse.from(performance, songs, members);
     }
 }

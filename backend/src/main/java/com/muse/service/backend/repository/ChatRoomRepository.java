@@ -3,6 +3,7 @@ package com.muse.service.backend.repository;
 import com.muse.service.backend.entity.ChatRoom;
 import com.muse.service.backend.entity.PerformanceSong;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -12,6 +13,20 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Integer> {
     boolean existsByPerformanceSong_PerformanceSongId(Integer performanceSongId);
 
     boolean existsByPerformanceSong_Performance_PerformanceIdAndPerformanceSong_IsDeletedFalse(Integer performanceId);
+
+    Optional<ChatRoom> findByChatRoomIdAndPerformanceSong_Performance_PerformanceId(
+            Integer chatRoomId,
+            Integer performanceId
+    );
+
+    @Query("""
+            select cr
+            from ChatRoom cr
+            join fetch cr.performanceSong ps
+            join fetch ps.performance p
+            where cr.chatRoomId = :chatRoomId
+            """)
+    Optional<ChatRoom> findByIdWithPerformanceSongAndPerformance(@Param("chatRoomId") Integer chatRoomId);
 
     @Query("""
             select cr

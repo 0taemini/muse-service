@@ -22,11 +22,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PerformanceSessionColumnServiceImpl implements PerformanceSessionColumnService {
 
     private static final List<DefaultColumnSpec> DEFAULT_COLUMNS = List.of(
@@ -80,6 +82,8 @@ public class PerformanceSessionColumnServiceImpl implements PerformanceSessionCo
         );
 
         syncColumnToAllSongs(column);
+        log.info("공연 세션 컬럼 추가 완료: performanceId={}, sessionColumnId={}, actorUserId={}, sessionName={}, source={}",
+                performanceId, column.getPerformanceSessionColumnId(), userId, column.getSessionName(), column.getSessionSource());
         return PerformanceSessionColumnResponse.from(column);
     }
 
@@ -114,6 +118,8 @@ public class PerformanceSessionColumnServiceImpl implements PerformanceSessionCo
         );
 
         syncExistingSongSessions(column);
+        log.info("공연 세션 컬럼 수정 완료: performanceId={}, sessionColumnId={}, actorUserId={}, sessionName={}, source={}",
+                performanceId, performanceSessionColumnId, userId, column.getSessionName(), column.getSessionSource());
         return PerformanceSessionColumnResponse.from(column);
     }
 
@@ -146,6 +152,8 @@ public class PerformanceSessionColumnServiceImpl implements PerformanceSessionCo
             );
         }
 
+        log.info("공연 기본 세션 컬럼 생성 완료: performanceId={}, createdCount={}",
+                performanceId, createdColumns.size());
         return createdColumns;
     }
 
