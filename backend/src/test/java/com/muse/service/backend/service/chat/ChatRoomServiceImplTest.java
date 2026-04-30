@@ -16,8 +16,12 @@ import com.muse.service.backend.global.exception.CustomException;
 import com.muse.service.backend.global.exception.ErrorCode;
 import com.muse.service.backend.repository.ChatRoomRepository;
 import com.muse.service.backend.repository.ChatRoundRepository;
+import com.muse.service.backend.repository.FeedbackSummaryRepository;
+import com.muse.service.backend.repository.MessageRepository;
+import com.muse.service.backend.repository.PerformanceMemberRepository;
 import com.muse.service.backend.repository.PerformanceRepository;
 import com.muse.service.backend.repository.PerformanceSongRepository;
+import com.muse.service.backend.repository.PerformanceSongSessionRepository;
 import com.muse.service.backend.repository.UserRepository;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -48,6 +52,18 @@ class ChatRoomServiceImplTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private PerformanceMemberRepository performanceMemberRepository;
+
+    @Mock
+    private PerformanceSongSessionRepository performanceSongSessionRepository;
+
+    @Mock
+    private MessageRepository messageRepository;
+
+    @Mock
+    private FeedbackSummaryRepository feedbackSummaryRepository;
+
     private ChatRoomServiceImpl chatRoomService;
 
     @BeforeEach
@@ -57,7 +73,11 @@ class ChatRoomServiceImplTest {
                 performanceSongRepository,
                 chatRoomRepository,
                 chatRoundRepository,
-                userRepository
+                userRepository,
+                performanceMemberRepository,
+                performanceSongSessionRepository,
+                messageRepository,
+                feedbackSummaryRepository
         );
     }
 
@@ -134,6 +154,64 @@ class ChatRoomServiceImplTest {
         assertThat(response.get(1).currentRound()).isNotNull();
         assertThat(response.get(1).currentRound().chatRoundId()).isEqualTo(20);
         verify(chatRoomRepository).findVisibleByPerformanceId(1, PerformanceSong.SelectionStatus.CONFIRMED);
+    }
+
+    @Test
+    void startNewRound_rejectsWhenLatestRoundOpenedWithinSixHours() {
+        Performance performance = performance(1);
+        User user = user(7);
+        PerformanceSong song = performanceSong(100, performance, PerformanceSong.SelectionStatus.CONFIRMED);
+        ChatRoom chatRoom = chatRoom(10, song);
+        ChatRound latestRound = chatRound(20, chatRoom);
+        ReflectionTestUtils.setField(latestRound, "openedAt", LocalDateTime.now().minusHours(5));
+
+        when(performanceRepository.findById(1)).thenReturn(Optional.of(performance));
+        when(userRepository.findById(7)).thenReturn(Optional.of(user));
+        when(performanceMemberRepository.existsByPerformance_PerformanceIdAndUser_UserId(1, 7)).thenReturn(true);
+        when(chatRoomRepository.findByChatRoomIdAndPerformanceSong_Performance_PerformanceId(10, 1))
+                .thenReturn(Optional.of(chatRoom));
+        when(chatRoundRepository.findFirstByChatRoom_ChatRoomIdOrderByOpenedAtDesc(10))
+                .thenReturn(Optional.of(latestRound));
+
+        assertThatThrownBy(() -> chatRoomService.startNewRound(1, 10, 7))
+                .isInstanceOfSatisfying(CustomException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.CHAT_ROUND_COOLDOWN));
+    }
+
+    @Test
+    void startNewRound_closesOpenRoundAndCreatesNewRoundAfterCooldown() {
+        Performance performance = performance(1);
+        User user = user(7);
+        PerformanceSong song = performanceSong(100, performance, PerformanceSong.SelectionStatus.CONFIRMED);
+        ChatRoom chatRoom = chatRoom(10, song);
+        ChatRound openRound = chatRound(20, chatRoom);
+        ReflectionTestUtils.setField(openRound, "openedAt", LocalDateTime.now().minusHours(7));
+
+        when(performanceRepository.findById(1)).thenReturn(Optional.of(performance));
+        when(userRepository.findById(7)).thenReturn(Optional.of(user));
+        when(performanceMemberRepository.existsByPerformance_PerformanceIdAndUser_UserId(1, 7)).thenReturn(true);
+        when(chatRoomRepository.findByChatRoomIdAndPerformanceSong_Performance_PerformanceId(10, 1))
+                .thenReturn(Optional.of(chatRoom));
+        when(chatRoundRepository.findFirstByChatRoom_ChatRoomIdOrderByOpenedAtDesc(10))
+                .thenReturn(Optional.of(openRound));
+        when(chatRoundRepository.findFirstByChatRoom_ChatRoomIdAndStatusOrderByOpenedAtDesc(
+                10,
+                ChatRound.RoundStatus.OPEN
+        )).thenReturn(Optional.of(openRound));
+        when(chatRoundRepository.save(any(ChatRound.class))).thenAnswer(invocation -> {
+            ChatRound chatRound = invocation.getArgument(0);
+            ReflectionTestUtils.setField(chatRound, "chatRoundId", 30);
+            ReflectionTestUtils.setField(chatRound, "openedAt", LocalDateTime.now());
+            ReflectionTestUtils.setField(chatRound, "status", ChatRound.RoundStatus.OPEN);
+            return chatRound;
+        });
+
+        var response = chatRoomService.startNewRound(1, 10, 7);
+
+        assertThat(openRound.getStatus()).isEqualTo(ChatRound.RoundStatus.CLOSED);
+        assertThat(openRound.getClosedAt()).isNotNull();
+        assertThat(response.chatRoundId()).isEqualTo(30);
+        assertThat(response.status()).isEqualTo(ChatRound.RoundStatus.OPEN);
     }
 
     private Performance performance(Integer id) {

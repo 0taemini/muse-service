@@ -2,6 +2,7 @@ package com.muse.service.backend.service.performance;
 
 import com.muse.service.backend.dto.performance.PerformanceSongCreateRequest;
 import com.muse.service.backend.dto.performance.PerformanceSongDetailResponse;
+import com.muse.service.backend.dto.performance.PerformanceSongOrderUpdateRequest;
 import com.muse.service.backend.dto.performance.PerformanceSongSessionsUpdateRequest;
 import com.muse.service.backend.dto.performance.PerformanceSongStatusUpdateRequest;
 import com.muse.service.backend.dto.performance.PerformanceSongUpdateRequest;
@@ -24,6 +25,13 @@ public interface PerformanceSongService {
             Integer performanceSongId,
             Integer userId,
             PerformanceSongStatusUpdateRequest request
+    );
+
+    PerformanceSongDetailResponse updateOrder(
+            Integer performanceId,
+            Integer performanceSongId,
+            Integer userId,
+            PerformanceSongOrderUpdateRequest request
     );
 
     PerformanceSongDetailResponse updateSessions(

@@ -2,6 +2,7 @@ package com.muse.service.backend.service.performance;
 
 import com.muse.service.backend.dto.performance.PerformanceSongCreateRequest;
 import com.muse.service.backend.dto.performance.PerformanceSongDetailResponse;
+import com.muse.service.backend.dto.performance.PerformanceSongOrderUpdateRequest;
 import com.muse.service.backend.dto.performance.PerformanceSongSessionAssignmentRequest;
 import com.muse.service.backend.dto.performance.PerformanceSongSessionResponse;
 import com.muse.service.backend.dto.performance.PerformanceSongSessionsUpdateRequest;
@@ -119,6 +120,24 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
         findUser(userId);
         PerformanceSong performanceSong = findActivePerformanceSong(performanceId, performanceSongId);
         performanceSong.changeSelectionStatus(request.selectionStatus());
+
+        return toDetailResponse(
+                performanceSong,
+                performanceSongSessionRepository.findAllByPerformanceSong_PerformanceSongIdOrderByDisplayOrderAsc(performanceSongId)
+        );
+    }
+
+    @Override
+    @Transactional
+    public PerformanceSongDetailResponse updateOrder(
+            Integer performanceId,
+            Integer performanceSongId,
+            Integer userId,
+            PerformanceSongOrderUpdateRequest request
+    ) {
+        findUser(userId);
+        PerformanceSong performanceSong = findActivePerformanceSong(performanceId, performanceSongId);
+        performanceSong.changeOrderNo(request.orderNo());
 
         return toDetailResponse(
                 performanceSong,

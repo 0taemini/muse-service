@@ -2,6 +2,7 @@ package com.muse.service.backend.controller;
 
 import com.muse.service.backend.dto.performance.PerformanceSongCreateRequest;
 import com.muse.service.backend.dto.performance.PerformanceSongDetailResponse;
+import com.muse.service.backend.dto.performance.PerformanceSongOrderUpdateRequest;
 import com.muse.service.backend.dto.performance.PerformanceSongSessionsUpdateRequest;
 import com.muse.service.backend.dto.performance.PerformanceSongStatusUpdateRequest;
 import com.muse.service.backend.dto.performance.PerformanceSongUpdateRequest;
@@ -27,7 +28,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "공연 후보곡 API", description = "공연 후보곡 등록, 수정, 상태 변경, 세션 구조 수정 API")
+@Tag(name = "후보곡 API", description = "공연 후보곡 등록, 수정, 상태 변경, 세션 구조 수정 API")
 @RestController
 @RequestMapping("/api/v1/performances/{performanceId}/songs")
 @RequiredArgsConstructor
@@ -83,7 +84,7 @@ public class PerformanceSongController {
         );
     }
 
-    @Operation(summary = "후보곡 상태 변경", description = "채팅방 생성 전까지 누구나 후보곡 상태를 변경할 수 있습니다.")
+    @Operation(summary = "후보곡 상태 변경", description = "누구나 후보곡 상태를 변경할 수 있습니다.")
     @PatchMapping("/{performanceSongId}/status")
     public ResponseEntity<ApiResponse<PerformanceSongDetailResponse>> updateStatus(
             @PathVariable Integer performanceId,
@@ -101,6 +102,27 @@ public class PerformanceSongController {
         );
         return ResponseEntity.ok(
                 ApiResponse.of(HttpStatus.OK, "후보곡 상태가 변경되었습니다.", response, httpRequest.getRequestURI())
+        );
+    }
+
+    @Operation(summary = "후보곡 순서 변경", description = "공연 안에서 후보곡의 표시 순서만 변경합니다.")
+    @PatchMapping("/{performanceSongId}/order")
+    public ResponseEntity<ApiResponse<PerformanceSongDetailResponse>> updateOrder(
+            @PathVariable Integer performanceId,
+            @PathVariable Integer performanceSongId,
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody PerformanceSongOrderUpdateRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        Integer userId = authenticatedUserId(userDetails);
+        PerformanceSongDetailResponse response = performanceSongService.updateOrder(
+                performanceId,
+                performanceSongId,
+                userId,
+                request
+        );
+        return ResponseEntity.ok(
+                ApiResponse.of(HttpStatus.OK, "후보곡 순서가 변경되었습니다.", response, httpRequest.getRequestURI())
         );
     }
 
