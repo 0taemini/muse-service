@@ -127,6 +127,10 @@ public class PerformanceSong {
         this.selectionStatus = selectionStatus;
     }
 
+    public void changeOrderNo(Integer orderNo) {
+        this.orderNo = orderNo;
+    }
+
     public void softDelete(User deletedByUser) {
         this.isDeleted = Boolean.TRUE;
         this.deletedAt = LocalDateTime.now();

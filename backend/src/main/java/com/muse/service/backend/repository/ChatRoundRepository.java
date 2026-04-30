@@ -7,4 +7,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ChatRoundRepository extends JpaRepository<ChatRound, Integer> {
 
     Optional<ChatRound> findFirstByChatRoom_ChatRoomIdOrderByOpenedAtDesc(Integer chatRoomId);
+
+    Optional<ChatRound> findFirstByChatRoom_ChatRoomIdAndStatusOrderByOpenedAtDesc(
+            Integer chatRoomId,
+            ChatRound.RoundStatus status
+    );
+
+    Optional<ChatRound> findByChatRoundIdAndChatRoom_ChatRoomId(Integer chatRoundId, Integer chatRoomId);
 }

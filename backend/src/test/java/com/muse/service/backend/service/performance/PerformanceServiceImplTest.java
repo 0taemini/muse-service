@@ -11,6 +11,7 @@ import com.muse.service.backend.entity.Performance;
 import com.muse.service.backend.entity.PerformanceSong;
 import com.muse.service.backend.global.exception.CustomException;
 import com.muse.service.backend.global.exception.ErrorCode;
+import com.muse.service.backend.repository.PerformanceMemberRepository;
 import com.muse.service.backend.repository.PerformanceRepository;
 import com.muse.service.backend.repository.PerformanceSongRepository;
 import java.time.LocalDateTime;
@@ -31,11 +32,18 @@ class PerformanceServiceImplTest {
     @Mock
     private PerformanceSongRepository performanceSongRepository;
 
+    @Mock
+    private PerformanceMemberRepository performanceMemberRepository;
+
     private PerformanceServiceImpl performanceService;
 
     @BeforeEach
     void setUp() {
-        performanceService = new PerformanceServiceImpl(performanceRepository, performanceSongRepository);
+        performanceService = new PerformanceServiceImpl(
+                performanceRepository,
+                performanceSongRepository,
+                performanceMemberRepository
+        );
     }
 
     @Test

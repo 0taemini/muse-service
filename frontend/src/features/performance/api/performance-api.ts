@@ -72,6 +72,8 @@ export interface ChatRoundSummary {
   status: 'OPEN' | 'CLOSED';
   openedAt: string;
   closedAt: string | null;
+  summarizedAt: string | null;
+  summarizedByUserId: number | null;
 }
 
 export interface ChatRoomSummary {
@@ -83,6 +85,44 @@ export interface ChatRoomSummary {
   orderNo: number;
   selectionStatus: SelectionStatus;
   currentRound: ChatRoundSummary | null;
+}
+
+export interface ChatMessage {
+  messageId: number;
+  chatRoomId: number;
+  chatRoundId: number;
+  senderUserId: number;
+  senderName: string;
+  senderNickname: string;
+  targetPerformanceSongSessionId: number;
+  targetSessionName: string;
+  targetUserId: number | null;
+  targetUserName: string | null;
+  senderRepresentativeSessionTypeId: number | null;
+  senderRepresentativeSessionName: string | null;
+  content: string;
+  createdAt: string;
+}
+
+export interface ChatRoomDetail {
+  room: ChatRoomSummary;
+  sessions: PerformanceSongSession[];
+  messages: ChatMessage[];
+  canStartNewRound: boolean;
+  nextRoundAvailableAt: string | null;
+  currentRoundSummarized: boolean;
+}
+
+export interface FeedbackSummary {
+  summaryId: number;
+  chatRoundId: number;
+  performanceSongSessionId: number;
+  sessionName: string;
+  targetUserId: number | null;
+  targetUserName: string | null;
+  summaryText: string;
+  createdByUserId: number;
+  createdAt: string;
 }
 
 export interface CreatePerformancePayload {
@@ -110,6 +150,10 @@ export interface UpdatePerformanceSongPayload {
 
 export interface UpdatePerformanceSongStatusPayload {
   selectionStatus: SelectionStatus;
+}
+
+export interface UpdatePerformanceSongOrderPayload {
+  orderNo: number;
 }
 
 export interface UpdatePerformanceSongSessionsPayload {
@@ -167,6 +211,10 @@ export const performanceApi = {
     unwrap<PerformanceSongDetail>(
       http.patch(`/api/v1/performances/${performanceId}/songs/${performanceSongId}/status`, payload),
     ),
+  updateSongOrder: (performanceId: number, performanceSongId: number, payload: UpdatePerformanceSongOrderPayload) =>
+    unwrap<PerformanceSongDetail>(
+      http.patch(`/api/v1/performances/${performanceId}/songs/${performanceSongId}/order`, payload),
+    ),
   updateSongSessions: (
     performanceId: number,
     performanceSongId: number,
@@ -181,4 +229,12 @@ export const performanceApi = {
     unwrap<ChatRoomSummary[]>(http.get(`/api/v1/performances/${performanceId}/chat-rooms`)),
   createChatRooms: (performanceId: number, payload: CreateChatRoomsPayload) =>
     unwrap<ChatRoomSummary[]>(http.post(`/api/v1/performances/${performanceId}/chat-rooms`, payload)),
+  getChatRoom: (performanceId: number, chatRoomId: number) =>
+    unwrap<ChatRoomDetail>(http.get(`/api/v1/performances/${performanceId}/chat-rooms/${chatRoomId}`)),
+  startChatRound: (performanceId: number, chatRoomId: number) =>
+    unwrap<ChatRoundSummary>(http.post(`/api/v1/performances/${performanceId}/chat-rooms/${chatRoomId}/rounds`)),
+  createAiFeedback: (performanceId: number, chatRoomId: number, chatRoundId: number) =>
+    unwrap<FeedbackSummary[]>(
+      http.post(`/api/v1/performances/${performanceId}/chat-rooms/${chatRoomId}/rounds/${chatRoundId}/ai-feedback`),
+    ),
 };

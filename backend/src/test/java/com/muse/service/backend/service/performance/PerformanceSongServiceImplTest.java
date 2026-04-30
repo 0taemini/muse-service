@@ -22,6 +22,7 @@ import com.muse.service.backend.entity.User;
 import com.muse.service.backend.global.exception.CustomException;
 import com.muse.service.backend.global.exception.ErrorCode;
 import com.muse.service.backend.repository.ChatRoomRepository;
+import com.muse.service.backend.repository.PerformanceMemberRepository;
 import com.muse.service.backend.repository.PerformanceRepository;
 import com.muse.service.backend.repository.PerformanceSessionColumnRepository;
 import com.muse.service.backend.repository.PerformanceSongRepository;
@@ -42,6 +43,9 @@ class PerformanceSongServiceImplTest {
 
     @Mock
     private PerformanceRepository performanceRepository;
+
+    @Mock
+    private PerformanceMemberRepository performanceMemberRepository;
 
     @Mock
     private PerformanceSongRepository performanceSongRepository;
@@ -67,6 +71,7 @@ class PerformanceSongServiceImplTest {
     void setUp() {
         performanceSongService = new PerformanceSongServiceImpl(
                 performanceRepository,
+                performanceMemberRepository,
                 performanceSongRepository,
                 performanceSongSessionRepository,
                 performanceSessionColumnRepository,
@@ -128,7 +133,7 @@ class PerformanceSongServiceImplTest {
                 new PerformanceSongUpdateRequest("New Song", "New Singer", true, 2)
         )).isInstanceOfSatisfying(CustomException.class, exception -> {
             assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PERFORMANCE_SONG_LOCKED);
-            assertThat(exception).hasMessage("채팅방이 생성된 뒤에는 세션 구조만 수정할 수 있습니다.");
+            assertThat(exception).hasMessage("채팅방이 생성된 뒤에는 세션 구조만 수정할 수 없습니다.");
         });
     }
 
@@ -211,6 +216,7 @@ class PerformanceSongServiceImplTest {
         when(performanceSongSessionRepository.save(any(PerformanceSongSession.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(userRepository.findById(7)).thenReturn(Optional.of(assigned));
+        when(performanceMemberRepository.existsByPerformance_PerformanceIdAndUser_UserId(1, 7)).thenReturn(true);
         when(chatRoomRepository.existsByPerformanceSong_PerformanceSongId(100)).thenReturn(false);
 
         var response = performanceSongService.updateSessions(
