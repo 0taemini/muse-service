@@ -30,7 +30,7 @@ public enum ErrorCode {
 
     PERFORMANCE_NOT_FOUND(HttpStatus.NOT_FOUND, "PERFORMANCE_001", "공연을 찾을 수 없습니다."),
     PERFORMANCE_SONG_NOT_FOUND(HttpStatus.NOT_FOUND, "PERFORMANCE_002", "공연 곡을 찾을 수 없습니다."),
-    PERFORMANCE_SONG_ACCESS_DENIED(HttpStatus.FORBIDDEN, "PERFORMANCE_003", "곡 작성자만 수정할 수 있습니다."),
+    PERFORMANCE_SONG_ACCESS_DENIED(HttpStatus.FORBIDDEN, "PERFORMANCE_003", "곡 작성자 또는 관리자만 수정할 수 있습니다."),
     PERFORMANCE_SONG_LOCKED(HttpStatus.CONFLICT, "PERFORMANCE_004", "채팅방이 생성된 뒤에는 세션 구조만 수정할 수 없습니다."),
     PERFORMANCE_SONG_ALREADY_DELETED(HttpStatus.CONFLICT, "PERFORMANCE_005", "이미 삭제된 공연 곡입니다."),
     PERFORMANCE_SONG_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "PERFORMANCE_006", "공연 곡 세션을 찾을 수 없습니다."),

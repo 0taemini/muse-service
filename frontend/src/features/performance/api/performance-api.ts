@@ -2,10 +2,12 @@ import { http } from '@shared/api/http';
 import type { ApiResponse } from '@shared/types/api';
 
 export type SelectionStatus = 'CONFIRMED' | 'NOT_BAD' | 'OUT';
+export type PerformanceStatus = 'ONGOING' | 'COMPLETED';
 
 export interface PerformanceSummary {
   performanceId: number;
   title: string;
+  status: PerformanceStatus;
   songCount: number;
   createdAt: string;
 }
@@ -17,6 +19,7 @@ export interface PerformanceSongSummary {
   isSheet: boolean;
   orderNo: number;
   selectionStatus: SelectionStatus;
+  createdByUserId: number | null;
 }
 
 export interface PerformanceMember {
@@ -29,6 +32,7 @@ export interface PerformanceMember {
 export interface PerformanceDetail {
   performanceId: number;
   title: string;
+  status: PerformanceStatus;
   songCount: number;
   createdAt: string;
   songs: PerformanceSongSummary[];
@@ -129,6 +133,11 @@ export interface CreatePerformancePayload {
   title: string;
 }
 
+export interface UpdatePerformancePayload {
+  title: string;
+  status: PerformanceStatus;
+}
+
 export interface CreatePerformanceMemberPayload {
   userId: number;
 }
@@ -185,6 +194,8 @@ export const performanceApi = {
   getPerformances: () => unwrap<PerformanceSummary[]>(http.get('/api/v1/performances')),
   getPerformance: (performanceId: number) =>
     unwrap<PerformanceDetail>(http.get(`/api/v1/performances/${performanceId}`)),
+  updatePerformance: (performanceId: number, payload: UpdatePerformancePayload) =>
+    unwrap<PerformanceDetail>(http.patch(`/api/v1/performances/${performanceId}`, payload)),
   createPerformanceMember: (performanceId: number, payload: CreatePerformanceMemberPayload) =>
     unwrap<PerformanceMember>(http.post(`/api/v1/performances/${performanceId}/members`, payload)),
   deletePerformanceMember: (performanceId: number, memberUserId: number) =>

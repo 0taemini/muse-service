@@ -24,6 +24,8 @@ export function HomeDashboardPageV2() {
   const accessToken = useAuthStore((state) => state.accessToken);
   const isAuthenticated = Boolean(accessToken);
   const [activePosterIndex, setActivePosterIndex] = useState(0);
+  const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
+  const [activeVideoIndex, setActiveVideoIndex] = useState(1);
   const posterTabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const posterTabScrollerRef = useRef<HTMLDivElement | null>(null);
   const posterTouchStartXRef = useRef<number | null>(null);
@@ -124,6 +126,8 @@ export function HomeDashboardPageV2() {
   };
 
   const activePoster = performancePosters[activePosterIndex];
+  const activeGalleryPhoto = galleryPhotos[activeGalleryIndex] ?? galleryPhotos[0];
+  const activeVideoItem = videoItems[activeVideoIndex] ?? videoItems[0];
 
   return (
     <section className="space-y-12 md:space-y-16">
@@ -161,7 +165,7 @@ export function HomeDashboardPageV2() {
               </div>
             </div>
 
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-4 pb-4 pt-16 md:px-6 md:pb-6 md:pt-20">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 hidden px-4 pb-4 pt-16 md:block md:px-6 md:pb-6 md:pt-20">
                 <div className="max-w-[560px] space-y-2 rounded-[28px] border border-white/12 bg-[linear-gradient(180deg,rgba(22,16,38,0.08)_0%,rgba(22,16,38,0.24)_22%,rgba(14,10,24,0.54)_100%)] px-4 py-3 shadow-[0_18px_40px_rgba(8,6,16,0.22)] backdrop-blur-[6px] md:space-y-3 md:px-6 md:py-6">
                   <h1 className="max-w-3xl text-[2.45rem] font-semibold tracking-tight text-white drop-shadow-[0_8px_20px_rgba(0,0,0,0.28)] md:text-[5.4rem] md:leading-[0.96]">
                     {heroContent.title}
@@ -208,6 +212,17 @@ export function HomeDashboardPageV2() {
           </div>
         </div>
 
+        <div className="rounded-[8px] border border-[rgba(95,75,182,0.1)] bg-white px-5 py-5 shadow-[0_14px_30px_rgba(52,35,110,0.06)] md:hidden">
+          <h1 className="text-[2.35rem] font-semibold tracking-tight text-[#241b42]">
+            {heroContent.title}
+          </h1>
+          <div className="mt-3 space-y-2 text-sm leading-7 text-[#5f567f]">
+            {heroContent.descriptionLines.slice(0, 2).map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+          </div>
+        </div>
+
       </section>
 
       {isAuthenticated ? (
@@ -234,7 +249,43 @@ export function HomeDashboardPageV2() {
       <section className="space-y-5">
         <SectionTitle title="MUSE의 순간들" />
 
-        <div className="grid gap-4 md:grid-cols-3 md:items-start md:justify-items-center md:gap-6">
+        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden md:hidden">
+          {galleryPhotos.map((photo, index) => (
+            <button
+              key={`gallery-tab-${photo.title}`}
+              type="button"
+              onClick={() => setActiveGalleryIndex(index)}
+              className={[
+                'shrink-0 rounded-full border px-3 py-2 text-xs font-semibold transition',
+                activeGalleryIndex === index
+                  ? 'border-[#5a43ba] bg-[#f3efff] text-[#4d36a2]'
+                  : 'border-slate-200 bg-white text-slate-500',
+              ].join(' ')}
+            >
+              {photo.title}
+            </button>
+          ))}
+        </div>
+
+        {activeGalleryPhoto ? (
+          <figure className="group w-full border border-[rgba(95,75,182,0.08)] bg-white p-3 shadow-[0_12px_28px_rgba(52,35,110,0.05)] rounded-tl-[28px] rounded-br-[28px] rounded-tr-none rounded-bl-none md:hidden">
+            <div className="relative overflow-hidden rounded-tl-[22px] rounded-br-[22px] rounded-tr-none rounded-bl-none">
+              <div className="h-[310px] overflow-hidden rounded-tl-[22px] rounded-br-[22px] rounded-tr-none rounded-bl-none">
+                <img
+                  src={activeGalleryPhoto.src}
+                  alt={activeGalleryPhoto.alt}
+                  className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03] rounded-tl-[22px] rounded-br-[22px] rounded-tr-none rounded-bl-none"
+                />
+              </div>
+              <figcaption className="absolute inset-x-3 bottom-3 rounded-tl-[18px] rounded-br-[18px] rounded-tr-none rounded-bl-none bg-[rgba(255,255,255,0.88)] px-4 py-3 text-[#241b42] shadow-[0_10px_22px_rgba(20,16,37,0.08)] backdrop-blur-md">
+                <p className="text-[1rem] font-semibold">{activeGalleryPhoto.title}</p>
+                <p className="mt-1 text-xs leading-5 text-[#6f678b]">{activeGalleryPhoto.caption}</p>
+              </figcaption>
+            </div>
+          </figure>
+        ) : null}
+
+        <div className="hidden gap-4 md:grid md:grid-cols-2 md:items-start md:justify-items-center md:gap-6">
           {galleryPhotos.map((photo, index) => (
             <figure
               key={photo.title}
@@ -283,7 +334,51 @@ export function HomeDashboardPageV2() {
         <div className="space-y-5">
           <SectionTitle title="영상 아카이브" />
 
-          <div className="grid gap-4">
+          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden md:hidden">
+            {videoItems.map((item, index) => (
+              <button
+                key={`video-tab-${item.title}`}
+                type="button"
+                onClick={() => setActiveVideoIndex(index)}
+                className={[
+                  'shrink-0 rounded-full border px-3 py-2 text-xs font-semibold transition',
+                  activeVideoIndex === index
+                    ? 'border-[#5a43ba] bg-[#f3efff] text-[#4d36a2]'
+                    : 'border-slate-200 bg-white text-slate-500',
+                ].join(' ')}
+              >
+                {item.title}
+              </button>
+            ))}
+          </div>
+
+          {activeVideoItem ? (
+            <article className="grid gap-4 rounded-[28px] border border-[rgba(95,75,182,0.08)] bg-white p-4 shadow-[0_12px_28px_rgba(52,35,110,0.04)] md:hidden">
+              <div className="overflow-hidden rounded-[22px] border border-[rgba(95,75,182,0.07)] bg-[#f7f5ff]">
+                <img src={activeVideoItem.thumbnail} alt="" className="h-full w-full object-cover" />
+              </div>
+
+              <div className="flex flex-col justify-center space-y-3">
+                <span className="inline-flex w-fit rounded-full border border-[rgba(95,75,182,0.1)] bg-[#fbfaff] px-3 py-1.5 text-xs font-medium text-[#4e3b9d]">
+                  {activeVideoItem.meta}
+                </span>
+                <p className="text-xl font-semibold text-[#241b42]">{activeVideoItem.title}</p>
+                <p className="text-sm leading-6 text-[#6f678b]">{activeVideoItem.description}</p>
+                {'href' in activeVideoItem ? (
+                  <a
+                    href={activeVideoItem.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex min-h-10 w-fit items-center justify-center rounded-full bg-[#5a43ba] px-4 text-sm font-semibold text-white transition hover:bg-[#493497]"
+                  >
+                    영상 보러가기
+                  </a>
+                ) : null}
+              </div>
+            </article>
+          ) : null}
+
+          <div className="hidden gap-4 md:grid">
             {videoItems.map((item) => (
               <article
                 key={item.title}
@@ -299,6 +394,16 @@ export function HomeDashboardPageV2() {
                   </span>
                   <p className="text-xl font-semibold text-[#241b42]">{item.title}</p>
                   <p className="text-sm leading-6 text-[#6f678b]">{item.description}</p>
+                  {'href' in item ? (
+                    <a
+                      href={item.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex min-h-10 w-fit items-center justify-center rounded-full bg-[#5a43ba] px-4 text-sm font-semibold text-white transition hover:bg-[#493497]"
+                    >
+                      영상 보러가기
+                    </a>
+                  ) : null}
                 </div>
               </article>
             ))}

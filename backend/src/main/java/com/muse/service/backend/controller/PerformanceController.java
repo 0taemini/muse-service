@@ -3,6 +3,8 @@ package com.muse.service.backend.controller;
 import com.muse.service.backend.dto.performance.PerformanceCreateRequest;
 import com.muse.service.backend.dto.performance.PerformanceDetailResponse;
 import com.muse.service.backend.dto.performance.PerformanceSummaryResponse;
+import com.muse.service.backend.dto.performance.PerformanceUpdateRequest;
+import com.muse.service.backend.entity.User;
 import com.muse.service.backend.dto.response.ApiResponse;
 import com.muse.service.backend.global.exception.CustomException;
 import com.muse.service.backend.global.exception.ErrorCode;
@@ -18,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -48,6 +51,22 @@ public class PerformanceController {
                 .body(ApiResponse.of(HttpStatus.CREATED, "공연이 생성되었습니다.", response, httpRequest.getRequestURI()));
     }
 
+    @Operation(summary = "공연 수정", description = "관리자만 공연 제목과 진행 상태를 수정할 수 있습니다.")
+    @PatchMapping("/{performanceId}")
+    public ResponseEntity<ApiResponse<PerformanceDetailResponse>> update(
+            @PathVariable Integer performanceId,
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody PerformanceUpdateRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        ensureAdmin(userDetails);
+
+        PerformanceDetailResponse response = performanceService.update(performanceId, request);
+        return ResponseEntity.ok(
+                ApiResponse.of(HttpStatus.OK, "공연 정보를 수정했습니다.", response, httpRequest.getRequestURI())
+        );
+    }
+
     @Operation(summary = "공연 목록 조회", description = "전체 공연 목록을 조회합니다.")
     @GetMapping
     public ResponseEntity<ApiResponse<List<PerformanceSummaryResponse>>> getAll(HttpServletRequest httpRequest) {
@@ -67,5 +86,15 @@ public class PerformanceController {
         return ResponseEntity.ok(
                 ApiResponse.of(HttpStatus.OK, "공연 상세 정보를 조회했습니다.", response, httpRequest.getRequestURI())
         );
+    }
+
+    private void ensureAdmin(CustomUserDetails userDetails) {
+        if (userDetails == null) {
+            throw new CustomException(ErrorCode.UNAUTHORIZED);
+        }
+
+        if (userDetails.getRole() != User.UserRole.ADMIN) {
+            throw new CustomException(ErrorCode.ACCESS_DENIED);
+        }
     }
 }

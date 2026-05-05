@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 public record PerformanceSummaryResponse(
         Integer performanceId,
         String title,
+        Performance.PerformanceStatus status,
         long songCount,
         LocalDateTime createdAt
 ) {
@@ -14,6 +15,7 @@ public record PerformanceSummaryResponse(
         return new PerformanceSummaryResponse(
                 performance.getPerformanceId(),
                 performance.getTitle(),
+                performance.getStatus(),
                 songCount,
                 performance.getCreatedAt()
         );
