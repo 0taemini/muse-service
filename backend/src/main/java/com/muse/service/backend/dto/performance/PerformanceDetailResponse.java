@@ -7,6 +7,7 @@ import java.util.List;
 public record PerformanceDetailResponse(
         Integer performanceId,
         String title,
+        Performance.PerformanceStatus status,
         int songCount,
         LocalDateTime createdAt,
         List<PerformanceSongResponse> songs,
@@ -21,6 +22,7 @@ public record PerformanceDetailResponse(
         return new PerformanceDetailResponse(
                 performance.getPerformanceId(),
                 performance.getTitle(),
+                performance.getStatus(),
                 songs.size(),
                 performance.getCreatedAt(),
                 songs,

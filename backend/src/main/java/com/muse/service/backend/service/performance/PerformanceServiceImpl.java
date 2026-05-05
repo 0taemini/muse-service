@@ -5,6 +5,7 @@ import com.muse.service.backend.dto.performance.PerformanceDetailResponse;
 import com.muse.service.backend.dto.performance.PerformanceMemberResponse;
 import com.muse.service.backend.dto.performance.PerformanceSongResponse;
 import com.muse.service.backend.dto.performance.PerformanceSummaryResponse;
+import com.muse.service.backend.dto.performance.PerformanceUpdateRequest;
 import com.muse.service.backend.entity.Performance;
 import com.muse.service.backend.entity.User;
 import com.muse.service.backend.global.exception.CustomException;
@@ -40,6 +41,18 @@ public class PerformanceServiceImpl implements PerformanceService {
         log.info("공연 생성 완료: performanceId={}, title={}", performance.getPerformanceId(), performance.getTitle());
 
         return PerformanceDetailResponse.from(performance, Collections.emptyList(), Collections.emptyList());
+    }
+
+    @Override
+    @Transactional
+    public PerformanceDetailResponse update(Integer performanceId, PerformanceUpdateRequest request) {
+        Performance performance = performanceRepository.findById(performanceId)
+                .orElseThrow(() -> new CustomException(ErrorCode.PERFORMANCE_NOT_FOUND));
+
+        performance.updateDetails(request.title().trim(), request.status());
+        log.info("공연 수정 완료: performanceId={}, status={}", performanceId, performance.getStatus());
+
+        return getById(performanceId);
     }
 
     @Override

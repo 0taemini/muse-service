@@ -98,7 +98,7 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
             PerformanceSongUpdateRequest request
     ) {
         PerformanceSong performanceSong = findActivePerformanceSong(performanceId, performanceSongId);
-        ensureAuthor(performanceSong, userId);
+        ensureAuthorOrAdmin(performanceSong, userId);
         ensureNoChatRoom(performanceSongId);
 
         performanceSong.updateDetails(
@@ -124,8 +124,8 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
             Integer userId,
             PerformanceSongStatusUpdateRequest request
     ) {
-        ensureAdmin(userId);
         PerformanceSong performanceSong = findActivePerformanceSong(performanceId, performanceSongId);
+        ensureAuthorOrAdmin(performanceSong, userId);
         performanceSong.changeSelectionStatus(request.selectionStatus());
         log.info("공연 곡 상태 변경 완료: performanceId={}, performanceSongId={}, adminUserId={}, status={}",
                 performanceId, performanceSongId, userId, request.selectionStatus());
@@ -144,8 +144,8 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
             Integer userId,
             PerformanceSongOrderUpdateRequest request
     ) {
-        findUser(userId);
         PerformanceSong performanceSong = findActivePerformanceSong(performanceId, performanceSongId);
+        ensureAuthorOrAdmin(performanceSong, userId);
         performanceSong.changeOrderNo(request.orderNo());
         log.info("공연 곡 순서 변경 완료: performanceId={}, performanceSongId={}, userId={}, orderNo={}",
                 performanceId, performanceSongId, userId, request.orderNo());
@@ -165,7 +165,7 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
             PerformanceSongSessionsUpdateRequest request
     ) {
         PerformanceSong performanceSong = findActivePerformanceSong(performanceId, performanceSongId);
-        ensureAuthor(performanceSong, userId);
+        ensureAuthorOrAdmin(performanceSong, userId);
 
         List<PerformanceSongSession> updatedSessions = new ArrayList<>();
         for (PerformanceSongSessionAssignmentRequest sessionRequest : request.sessions()) {
@@ -214,7 +214,7 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
     @Transactional
     public void delete(Integer performanceId, Integer performanceSongId, Integer userId) {
         PerformanceSong performanceSong = findActivePerformanceSong(performanceId, performanceSongId);
-        ensureAuthor(performanceSong, userId);
+        ensureAuthorOrAdmin(performanceSong, userId);
         ensureNoChatRoom(performanceSongId);
         performanceSong.softDelete(findUser(userId));
         log.info("공연 곡 논리 삭제 완료: performanceId={}, performanceSongId={}, userId={}",
@@ -275,11 +275,18 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 
-    private void ensureAdmin(Integer userId) {
+    private void ensureAuthorOrAdmin(PerformanceSong performanceSong, Integer userId) {
         User user = findUser(userId);
-        if (user.getRole() != User.UserRole.ADMIN) {
-            throw new CustomException(ErrorCode.ACCESS_DENIED);
+        if (user.getRole() == User.UserRole.ADMIN) {
+            return;
         }
+
+        if (performanceSong.getCreatedByUser() != null
+                && performanceSong.getCreatedByUser().getUserId().equals(userId)) {
+            return;
+        }
+
+        throw new CustomException(ErrorCode.PERFORMANCE_SONG_ACCESS_DENIED);
     }
 
     private User findPerformanceMemberUser(Integer performanceId, Integer userId) {
@@ -293,12 +300,6 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
             throw new CustomException(ErrorCode.DATA_CONFLICT);
         }
         return user;
-    }
-
-    private void ensureAuthor(PerformanceSong performanceSong, Integer userId) {
-        if (performanceSong.getCreatedByUser() == null || !performanceSong.getCreatedByUser().getUserId().equals(userId)) {
-            throw new CustomException(ErrorCode.PERFORMANCE_SONG_ACCESS_DENIED);
-        }
     }
 
     private void ensureNoChatRoom(Integer performanceSongId) {

@@ -124,6 +124,7 @@ class PerformanceSongServiceImplTest {
         when(performanceRepository.findById(1)).thenReturn(Optional.of(performance));
         when(performanceSongRepository.findByPerformanceSongIdAndPerformance_PerformanceId(100, 1))
                 .thenReturn(Optional.of(performanceSong));
+        when(userRepository.findById(3)).thenReturn(Optional.of(performanceSong.getCreatedByUser()));
         when(chatRoomRepository.existsByPerformanceSong_PerformanceSongId(100)).thenReturn(true);
 
         assertThatThrownBy(() -> performanceSongService.update(
@@ -138,7 +139,7 @@ class PerformanceSongServiceImplTest {
     }
 
     @Test
-    void updateStatus_allowsAdminOnly() {
+    void updateStatus_allowsAdmin() {
         Performance performance = performance(1);
         PerformanceSong performanceSong = performanceSong(100, performance, user(3), "Song", "Singer", 1);
         User admin = user(9, User.UserRole.ADMIN);
@@ -162,7 +163,13 @@ class PerformanceSongServiceImplTest {
     }
 
     @Test
-    void updateStatus_whenUserIsNotAdmin_throwsAccessDenied() {
+    void updateStatus_whenUserIsNotAdminOrAuthor_throwsAccessDenied() {
+        Performance performance = performance(1);
+        PerformanceSong performanceSong = performanceSong(100, performance, user(3), "Song", "Singer", 1);
+
+        when(performanceRepository.findById(1)).thenReturn(Optional.of(performance));
+        when(performanceSongRepository.findByPerformanceSongIdAndPerformance_PerformanceId(100, 1))
+                .thenReturn(Optional.of(performanceSong));
         when(userRepository.findById(9)).thenReturn(Optional.of(user(9)));
 
         assertThatThrownBy(() -> performanceSongService.updateStatus(
@@ -171,7 +178,7 @@ class PerformanceSongServiceImplTest {
                 9,
                 new PerformanceSongStatusUpdateRequest(PerformanceSong.SelectionStatus.OUT)
         )).isInstanceOfSatisfying(CustomException.class, exception ->
-                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.ACCESS_DENIED));
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PERFORMANCE_SONG_ACCESS_DENIED));
     }
 
     @Test
@@ -217,6 +224,7 @@ class PerformanceSongServiceImplTest {
         when(performanceRepository.findById(1)).thenReturn(Optional.of(performance));
         when(performanceSongRepository.findByPerformanceSongIdAndPerformance_PerformanceId(100, 1))
                 .thenReturn(Optional.of(performanceSong));
+        when(userRepository.findById(3)).thenReturn(Optional.of(author));
         when(performanceSessionColumnRepository.findByPerformanceSessionColumnIdAndPerformance_PerformanceId(501, 1))
                 .thenReturn(Optional.of(guitar));
         when(performanceSessionColumnRepository.findByPerformanceSessionColumnIdAndPerformance_PerformanceId(502, 1))

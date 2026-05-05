@@ -2,6 +2,8 @@ package com.muse.service.backend.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -27,16 +29,37 @@ public class Performance {
     @Column(nullable = false, length = 50)
     private String title;
 
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private PerformanceStatus status = PerformanceStatus.ONGOING;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
     @Builder
     public Performance(String title) {
         this.title = title;
+        this.status = PerformanceStatus.ONGOING;
     }
 
     @PrePersist
     void onCreate() {
+        if (this.status == null) {
+            this.status = PerformanceStatus.ONGOING;
+        }
         this.createdAt = LocalDateTime.now();
+    }
+
+    public PerformanceStatus getStatus() {
+        return status == null ? PerformanceStatus.ONGOING : status;
+    }
+
+    public void updateDetails(String title, PerformanceStatus status) {
+        this.title = title;
+        this.status = status;
+    }
+
+    public enum PerformanceStatus {
+        ONGOING, COMPLETED
     }
 }
