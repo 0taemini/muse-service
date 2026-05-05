@@ -187,27 +187,31 @@ export function HomeDashboardPageV2() {
               className="relative z-[2] h-full w-full cursor-pointer text-left"
               aria-label={`${activePoster.title} 포스터 넘기기`}
             >
-	              {performancePosters.map((poster, index) => (
-	                <div
-	                  key={poster.title}
-	                  className={[
-	                    'absolute inset-0 transition-opacity duration-700',
-	                    activePosterIndex === index ? 'opacity-100' : 'opacity-0',
-	                  ].join(' ')}
-	                >
-	                  <img
-	                    src={poster.src}
-	                    alt=""
-	                    aria-hidden="true"
-	                    className="absolute inset-0 h-full w-full scale-[1.03] object-cover blur-sm brightness-[0.72]"
-	                  />
-	                  <img
-	                    src={poster.src}
-	                    alt={poster.alt}
-	                    className="absolute inset-0 h-full w-full object-contain p-2 md:p-4"
-	                  />
-	                </div>
-	              ))}
+              {performancePosters.map((poster, index) => (
+                <div
+                  key={poster.title}
+                  className={[
+                    'absolute inset-0 transition-opacity duration-700',
+                    activePosterIndex === index ? 'opacity-100' : 'opacity-0',
+                  ].join(' ')}
+                >
+                  <img
+                    src={poster.src}
+                    alt=""
+                    aria-hidden="true"
+                    decoding="async"
+                    fetchPriority={activePosterIndex === index ? 'high' : 'low'}
+                    className="absolute inset-0 h-full w-full scale-[1.03] object-cover blur-sm brightness-[0.72]"
+                  />
+                  <img
+                    src={poster.src}
+                    alt={poster.alt}
+                    decoding="async"
+                    fetchPriority={activePosterIndex === index ? 'high' : 'low'}
+                    className="absolute inset-0 h-full w-full object-contain p-2 md:p-4"
+                  />
+                </div>
+              ))}
             </button>
           </div>
         </div>
@@ -274,6 +278,8 @@ export function HomeDashboardPageV2() {
                 <img
                   src={activeGalleryPhoto.src}
                   alt={activeGalleryPhoto.alt}
+                  loading="lazy"
+                  decoding="async"
                   className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03] rounded-tl-[22px] rounded-br-[22px] rounded-tr-none rounded-bl-none"
                 />
               </div>
@@ -299,6 +305,8 @@ export function HomeDashboardPageV2() {
                   <img
                     src={photo.src}
                     alt={photo.alt}
+                    loading="lazy"
+                    decoding="async"
                     className={[
                       'h-full w-full object-cover transition duration-500 group-hover:scale-[1.03] rounded-tl-[22px] rounded-br-[22px] rounded-tr-none rounded-bl-none',
                       index !== 1 ? 'grayscale-[0.08]' : '',
@@ -355,7 +363,14 @@ export function HomeDashboardPageV2() {
           {activeVideoItem ? (
             <article className="grid gap-4 rounded-[28px] border border-[rgba(95,75,182,0.08)] bg-white p-4 shadow-[0_12px_28px_rgba(52,35,110,0.04)] md:hidden">
               <div className="overflow-hidden rounded-[22px] border border-[rgba(95,75,182,0.07)] bg-[#f7f5ff]">
-                <img src={activeVideoItem.thumbnail} alt="" className="h-full w-full object-cover" />
+                <img
+                  src={activeVideoItem.thumbnail}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
+                  className="h-full w-full object-cover"
+                />
               </div>
 
               <div className="flex flex-col justify-center space-y-3">
@@ -385,7 +400,14 @@ export function HomeDashboardPageV2() {
                 className="grid gap-4 rounded-[28px] border border-[rgba(95,75,182,0.08)] bg-white p-4 shadow-[0_12px_28px_rgba(52,35,110,0.04)] md:grid-cols-[220px_1fr]"
               >
                 <div className="overflow-hidden rounded-[22px] border border-[rgba(95,75,182,0.07)] bg-[#f7f5ff]">
-                  <img src={item.thumbnail} alt={`${item.title} 썸네일`} className="h-full w-full object-cover" />
+                  <img
+                    src={item.thumbnail}
+                    alt={`${item.title} 썸네일`}
+                    loading="lazy"
+                    decoding="async"
+                    referrerPolicy="no-referrer"
+                    className="h-full w-full object-cover"
+                  />
                 </div>
 
                 <div className="flex flex-col justify-center space-y-3">
