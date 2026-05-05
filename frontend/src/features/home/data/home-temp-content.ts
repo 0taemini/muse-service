@@ -2,6 +2,8 @@ import poster2024Regular from '../../../../2024정기공연.jpg';
 import poster2025Early from '../../../../2025초반공연포스터.jpg';
 import poster2025Regular from '../../../../2025정기공연.webp';
 import poster2025Summer from '../../../../2025여름공연포스터.jpg';
+import photo2025Mt from '../../../../2025뮤즈MT사진.png';
+import photo2025Regular from '../../../../2025정기공연사진.png';
 
 export const heroContent = {
   title: 'MUSE',
@@ -44,36 +46,32 @@ export const performancePosters = [
 
 export const galleryPhotos = [
   {
-    title: '합주 사진',
-    caption: '합주실에서 음악 호흡을 맞추며 무대를 준비하는 시간들입니다.',
-    src: '/placeholders/muse-photo-rehearsal.svg',
-    alt: '뮤즈 합주 사진',
+    title: '공연사진',
+    caption: '무대 위에서 음악과 함께 남긴 MUSE의 공연 기록입니다.',
+    src: photo2025Regular,
+    alt: 'MUSE 2025 정기 공연사진',
   },
   {
-    title: 'MT 사진',
-    caption: '무대 밖에서도 함께 웃고 어울리는 MUSE의 순간들입니다.',
-    src: '/placeholders/muse-photo-band.svg',
-    alt: '뮤즈 MT 사진',
-  },
-  {
-    title: '공연 사진',
-    caption: '정기 공연 무대 위의 장면들을 담아 둔 공연 기록입니다.',
-    src: '/placeholders/muse-photo-stage.svg',
-    alt: '뮤즈 공연 사진',
+    title: '활동사진',
+    caption: '합주, 모임, MT처럼 함께 웃고 어울리는 MUSE의 순간들입니다.',
+    src: photo2025Mt,
+    alt: 'MUSE 2025 MT 활동사진',
   },
 ];
 
 export const videoItems = [
   {
-    title: '봄 공연 하이라이트',
-    description: '한 공연의 분위기를 가장 압축해서 보여 주는 대표 영상입니다.',
-    thumbnail: '/placeholders/muse-video-spring.svg',
-    meta: '정기 공연',
-  },
-  {
     title: '뮤즈 공연 아카이브',
     description: '공연의 흐름을 다시 볼 수 있도록 모아 둔 영상 아카이브입니다.',
-    thumbnail: '/placeholders/muse-video-archive.svg',
+    thumbnail: 'https://img.youtube.com/vi/WVbU6dc315k/hqdefault.jpg',
     meta: '아카이브',
+    href: 'https://www.youtube.com/watch?v=WVbU6dc315k&list=PLuna_FqxOxWkOFYn5D0fwlQaoLovE_6tb',
+  },
+  {
+    title: '뮤즈 브이로그',
+    description: '공연 준비와 동아리 활동의 분위기를 가볍게 볼 수 있는 영상입니다.',
+    thumbnail: 'https://img.youtube.com/vi/SqRmlOscfUE/hqdefault.jpg',
+    meta: '브이로그',
+    href: 'https://www.youtube.com/watch?v=SqRmlOscfUE&list=PLuna_FqxOxWmLS7Zppu0r730hMBvmwAeR',
   },
 ];

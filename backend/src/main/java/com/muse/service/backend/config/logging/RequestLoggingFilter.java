@@ -82,7 +82,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             log.warn("API 요청 경고: method={}, path={}, status={}, durationMs={}",
                     request.getMethod(), path, status, durationMs);
         } else {
-            log.info("API 요청 완료: method={}, path={}, status={}, durationMs={}",
+            log.debug("API 요청 완료: method={}, path={}, status={}, durationMs={}",
                     request.getMethod(), path, status, durationMs);
         }
     }

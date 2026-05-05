@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import com.muse.service.backend.dto.performance.PerformanceCreateRequest;
 import com.muse.service.backend.dto.performance.PerformanceDetailResponse;
 import com.muse.service.backend.dto.performance.PerformanceSummaryResponse;
+import com.muse.service.backend.dto.performance.PerformanceUpdateRequest;
 import com.muse.service.backend.entity.Performance;
 import com.muse.service.backend.entity.PerformanceSong;
 import com.muse.service.backend.entity.User;
@@ -56,8 +57,29 @@ class PerformanceServiceImplTest {
 
         assertThat(response.performanceId()).isEqualTo(1);
         assertThat(response.title()).isEqualTo("Spring Concert");
+        assertThat(response.status()).isEqualTo(Performance.PerformanceStatus.ONGOING);
         assertThat(response.songCount()).isZero();
         assertThat(response.songs()).isEmpty();
+    }
+
+    @Test
+    void update_changesTitleAndStatus() {
+        Performance performance = performance(1, "Spring Concert", LocalDateTime.of(2026, 3, 11, 10, 0));
+
+        when(performanceRepository.findById(1)).thenReturn(java.util.Optional.of(performance));
+        when(performanceSongRepository.findAllActiveByPerformanceIdOrderByOrderNoAsc(1)).thenReturn(List.of());
+        when(performanceMemberRepository.findAllByPerformance_PerformanceIdAndUser_StatusOrderByCreatedAtAsc(
+                1,
+                User.UserStatus.ACTIVE
+        )).thenReturn(List.of());
+
+        PerformanceDetailResponse response = performanceService.update(
+                1,
+                new PerformanceUpdateRequest("  Final Concert  ", Performance.PerformanceStatus.COMPLETED)
+        );
+
+        assertThat(response.title()).isEqualTo("Final Concert");
+        assertThat(response.status()).isEqualTo(Performance.PerformanceStatus.COMPLETED);
     }
 
     @Test
@@ -75,6 +97,7 @@ class PerformanceServiceImplTest {
 
         assertThat(response).hasSize(2);
         assertThat(response.get(0).performanceId()).isEqualTo(2);
+        assertThat(response.get(0).status()).isEqualTo(Performance.PerformanceStatus.ONGOING);
         assertThat(response.get(0).songCount()).isEqualTo(3L);
         assertThat(response.get(1).performanceId()).isEqualTo(1);
         assertThat(response.get(1).songCount()).isEqualTo(1L);

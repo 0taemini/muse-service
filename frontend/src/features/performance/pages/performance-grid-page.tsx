@@ -2,7 +2,7 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDeferredValue } from 'react';
 import { useRef, type DragEvent } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { toApiMessage } from '@features/auth/api/auth-api';
 import {
   performanceApi,
@@ -10,6 +10,8 @@ import {
   type ChatRoomDetail,
   type PerformanceMember,
   type PerformanceSessionColumn,
+  type PerformanceSummary,
+  type PerformanceStatus,
   type PerformanceSongDetail,
   type PerformanceSongSummary,
   type SelectionStatus,
@@ -47,6 +49,11 @@ type ColumnForm = {
   isRequired: boolean;
 };
 
+type UpdatePerformanceForm = {
+  title: string;
+  status: PerformanceStatus;
+};
+
 const emptyCreateSongForm: CreateSongForm = {
   songTitle: '',
   singer: '',
@@ -59,6 +66,28 @@ const emptyColumnForm: ColumnForm = {
   sessionName: '',
   displayOrder: '',
   isRequired: false,
+};
+
+const emptyUpdatePerformanceForm: UpdatePerformanceForm = {
+  title: '',
+  status: 'ONGOING',
+};
+
+const performanceStatusMeta: Record<
+  PerformanceStatus,
+  {
+    label: string;
+    tone: 'confirmed' | 'neutral';
+  }
+> = {
+  ONGOING: {
+    label: '진행중',
+    tone: 'confirmed',
+  },
+  COMPLETED: {
+    label: '완료',
+    tone: 'neutral',
+  },
 };
 
 const statusMeta: Record<
@@ -93,7 +122,9 @@ const selectionStatusSortOrder: Record<SelectionStatus, number> = {
 };
 const selectionStatusOrder = ['CONFIRMED', 'NOT_BAD', 'OUT'] as const;
 const catalogPageSize = 10;
+const initialVisibleMemberCohortCount = 2;
 const catalogStatusFilterOptions: SongStatusFilter[] = ['ALL', ...selectionStatusOrder];
+const selectedPerformanceStorageKey = 'muse:selected-performance-id';
 const stageOptions: { id: StageId; label: string }[] = [
   { id: 'catalog', label: '곡 목록' },
   { id: 'review', label: '선곡 심사' },
@@ -207,12 +238,21 @@ const EMPTY_ARRAY: never[] = [];
 export function PerformanceGridPage() {
   const queryClient = useQueryClient();
   const location = useLocation();
+  const navigate = useNavigate();
   const [stage, setStage] = useState<StageId>('catalog');
   const [catalogStatusFilter, setCatalogStatusFilter] = useState<SongStatusFilter>('ALL');
   const [catalogPage, setCatalogPage] = useState(1);
   const [message, setMessage] = useState('');
-  const [selectedPerformanceId, setSelectedPerformanceId] = useState<number | null>(null);
+  const [selectedPerformanceId, setSelectedPerformanceId] = useState<number | null>(() => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    const savedPerformanceId = Number(window.localStorage.getItem(selectedPerformanceStorageKey));
+    return Number.isFinite(savedPerformanceId) && savedPerformanceId > 0 ? savedPerformanceId : null;
+  });
   const [isCreatePerformanceModalOpen, setIsCreatePerformanceModalOpen] = useState(false);
+  const [isUpdatePerformanceModalOpen, setIsUpdatePerformanceModalOpen] = useState(false);
   const [isCreateSongModalOpen, setIsCreateSongModalOpen] = useState(false);
   const [isCreateColumnModalOpen, setIsCreateColumnModalOpen] = useState(false);
   const [isMemberManageModalOpen, setIsMemberManageModalOpen] = useState(false);
@@ -222,6 +262,8 @@ export function PerformanceGridPage() {
   const [draggingSongId, setDraggingSongId] = useState<number | null>(null);
   const [dragOverSongId, setDragOverSongId] = useState<number | null>(null);
   const [createPerformanceTitle, setCreatePerformanceTitle] = useState('');
+  const [updatePerformanceForm, setUpdatePerformanceForm] =
+    useState<UpdatePerformanceForm>(emptyUpdatePerformanceForm);
   const [createSongForm, setCreateSongForm] = useState<CreateSongForm>(emptyCreateSongForm);
   const [songDrafts, setSongDrafts] = useState<Record<number, SongDraft>>({});
   const [columnForm, setColumnForm] = useState<ColumnForm>(emptyColumnForm);
@@ -232,7 +274,8 @@ export function PerformanceGridPage() {
     typeof window === 'undefined' ? true : window.matchMedia('(min-width: 1280px)').matches,
   );
   const [isSidebarSongListOpen, setIsSidebarSongListOpen] = useState(false);
-  const [selectedMemberUserId, setSelectedMemberUserId] = useState('');
+  const [selectedMemberUserIds, setSelectedMemberUserIds] = useState<string[]>([]);
+  const [visibleMemberCohortCount, setVisibleMemberCohortCount] = useState(initialVisibleMemberCohortCount);
   const [selectedChatRoomId, setSelectedChatRoomId] = useState<number | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -297,6 +340,10 @@ export function PerformanceGridPage() {
   const visibleChatRooms = useMemo(
     () => chatRoomsQuery.data?.data ?? EMPTY_ARRAY,
     [chatRoomsQuery.data],
+  );
+  const existingChatRoomSongIds = useMemo(
+    () => new Set(visibleChatRooms.map((room) => room.performanceSongId)),
+    [visibleChatRooms],
   );
   const mobileFilteredChatRooms = useMemo(
     () => {
@@ -401,7 +448,7 @@ export function PerformanceGridPage() {
   );
 
   const songDetailQueries = useQueries({
-    queries: (selectedPerformanceId ? songs : []).map((song) => ({
+    queries: (selectedPerformanceId ? confirmedSongs : []).map((song) => ({
       queryKey: ['performance-song', selectedPerformanceId, song.performanceSongId],
       queryFn: () => performanceApi.getSong(selectedPerformanceId!, song.performanceSongId),
       enabled: selectedPerformanceId !== null,
@@ -421,12 +468,8 @@ export function PerformanceGridPage() {
   );
 
   const creatableConfirmedSongs = useMemo(
-    () =>
-      confirmedSongs.filter((song) => {
-        const detail = songDetailsById.get(song.performanceSongId);
-        return detail?.chatRoomCreated === false;
-      }),
-    [confirmedSongs, songDetailsById],
+    () => confirmedSongs.filter((song) => !existingChatRoomSongIds.has(song.performanceSongId)),
+    [confirmedSongs, existingChatRoomSongIds],
   );
   const assignmentGridTemplate = useMemo(
     () =>
@@ -448,7 +491,73 @@ export function PerformanceGridPage() {
       ),
     [performanceMembers, users],
   );
+  const availableMemberGroups = useMemo(
+    () =>
+      Array.from(
+        availableUsersForMembers
+          .reduce((groups, user) => {
+            const cohortUsers = groups.get(user.cohort) ?? [];
+            cohortUsers.push(user);
+            groups.set(user.cohort, cohortUsers);
+            return groups;
+          }, new Map<number, typeof availableUsersForMembers>()),
+      )
+        .map(([cohort, cohortUsers]) => ({
+          cohort,
+          users: [...cohortUsers].sort((left, right) =>
+            formatUserAssignmentLabel(left).localeCompare(formatUserAssignmentLabel(right), 'ko-KR'),
+          ),
+        }))
+        .sort((left, right) => right.cohort - left.cohort),
+    [availableUsersForMembers],
+  );
+  const visibleMemberGroups = useMemo(
+    () => availableMemberGroups.slice(0, visibleMemberCohortCount),
+    [availableMemberGroups, visibleMemberCohortCount],
+  );
+  const hiddenMemberCohortCount = Math.max(0, availableMemberGroups.length - visibleMemberGroups.length);
   const selectedPerformanceTitle = performance?.title ?? '공연을 선택해 주세요';
+  const selectedPerformanceStatus = performance?.status ?? 'ONGOING';
+  const selectPerformance = (performanceId: number | null) => {
+    setSelectedPerformanceId(performanceId);
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (performanceId === null) {
+      window.localStorage.removeItem(selectedPerformanceStorageKey);
+      return;
+    }
+
+    window.localStorage.setItem(selectedPerformanceStorageKey, String(performanceId));
+  };
+  const isChatRoomCreated = (performanceSongId: number) =>
+    existingChatRoomSongIds.has(performanceSongId) ||
+    songDetailsById.get(performanceSongId)?.chatRoomCreated === true;
+  const canManageSong = (song: PerformanceSongSummary) =>
+    Boolean(isAdmin || (currentUser?.userId && song.createdByUserId === currentUser.userId));
+
+  const openUpdatePerformanceModal = () => {
+    if (!performance) {
+      return;
+    }
+
+    setUpdatePerformanceForm({
+      title: performance.title,
+      status: performance.status ?? 'ONGOING',
+    });
+    setIsUpdatePerformanceModalOpen(true);
+  };
+
+  const openUpdatePerformanceModalFor = (nextPerformance: PerformanceSummary) => {
+    selectPerformance(nextPerformance.performanceId);
+    setUpdatePerformanceForm({
+      title: nextPerformance.title,
+      status: nextPerformance.status ?? 'ONGOING',
+    });
+    setIsUpdatePerformanceModalOpen(true);
+  };
 
   useEffect(() => {
     const nextDrafts = Object.fromEntries(songs.map((song) => [song.performanceSongId, toSongDraft(song)]));
@@ -493,10 +602,11 @@ export function PerformanceGridPage() {
       return;
     }
 
-    setSelectedPerformanceId(null);
+    selectPerformance(null);
     setStage('catalog');
     setIsCreateSongModalOpen(false);
-  }, [location.pathname, location.state]);
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+  }, [location.pathname, location.search, location.state, navigate]);
 
   useEffect(() => {
     const detail = chatRoomDetailQuery.data?.data;
@@ -662,7 +772,23 @@ export function PerformanceGridPage() {
       setIsCreatePerformanceModalOpen(false);
       setCreatePerformanceTitle('');
       await queryClient.invalidateQueries({ queryKey: ['performances'] });
-      setSelectedPerformanceId(response.data.performanceId);
+      selectPerformance(response.data.performanceId);
+    },
+    onError: (error) => setErrorMessage(toApiMessage(error)),
+  });
+
+  const updatePerformanceMutation = useMutation({
+    mutationFn: ({
+      performanceId,
+      payload,
+    }: {
+      performanceId: number;
+      payload: Parameters<typeof performanceApi.updatePerformance>[1];
+    }) => performanceApi.updatePerformance(performanceId, payload),
+    onSuccess: async (response) => {
+      clearSuccessMessage();
+      setIsUpdatePerformanceModalOpen(false);
+      await invalidatePerformance(response.data.performanceId);
     },
     onError: (error) => setErrorMessage(toApiMessage(error)),
   });
@@ -687,13 +813,14 @@ export function PerformanceGridPage() {
   const createPerformanceMemberMutation = useMutation({
     mutationFn: ({
       performanceId,
-      userId,
+      userIds,
     }: {
       performanceId: number;
-      userId: number;
-    }) => performanceApi.createPerformanceMember(performanceId, { userId }),
+      userIds: number[];
+    }) => Promise.all(userIds.map((userId) => performanceApi.createPerformanceMember(performanceId, { userId }))),
     onSuccess: async (_, variables) => {
-      setSelectedMemberUserId('');
+      setSelectedMemberUserIds([]);
+      setVisibleMemberCohortCount(initialVisibleMemberCohortCount);
       await invalidatePerformance(variables.performanceId);
     },
     onError: (error) => setErrorMessage(toApiMessage(error)),
@@ -899,17 +1026,16 @@ export function PerformanceGridPage() {
       singer: normalizedSinger,
       orderNo: String(normalizedOrderNo),
       isSheet: currentDraft.isSheet,
-      selectionStatus: isAdmin ? currentDraft.selectionStatus : song.selectionStatus,
+      selectionStatus: canManageSong(song) ? currentDraft.selectionStatus : song.selectionStatus,
     };
-    const detail = songDetailsById.get(song.performanceSongId);
-    const isLockedSong = detail?.chatRoomCreated === true;
+    const isLockedSong = isChatRoomCreated(song.performanceSongId);
 
     setSongDrafts((current) => ({
       ...current,
       [song.performanceSongId]: normalizedDraft,
     }));
 
-    if (!isLockedSong) {
+    if (!isLockedSong && canManageSong(song)) {
       await updateSongMutation.mutateAsync({
         performanceId: selectedPerformanceId,
         songId: song.performanceSongId,
@@ -922,7 +1048,7 @@ export function PerformanceGridPage() {
       });
     }
 
-    if (normalizedDraft.selectionStatus !== song.selectionStatus) {
+    if (canManageSong(song) && normalizedDraft.selectionStatus !== song.selectionStatus) {
       await updateSongStatusMutation.mutateAsync({
         performanceId: selectedPerformanceId,
         songId: song.performanceSongId,
@@ -931,19 +1057,23 @@ export function PerformanceGridPage() {
     }
   };
 
-  const persistAssignmentDraft = async (songId: number, nextDraft: Record<number, string>) => {
+  const persistAssignmentDraft = async (song: PerformanceSongSummary, nextDraft: Record<number, string>) => {
     if (!selectedPerformanceId) {
+      return;
+    }
+
+    if (!canManageSong(song)) {
       return;
     }
 
     setAssignmentDrafts((current) => ({
       ...current,
-      [songId]: nextDraft,
+      [song.performanceSongId]: nextDraft,
     }));
 
     await updateAssignmentsMutation.mutateAsync({
       performanceId: selectedPerformanceId,
-      songId,
+      songId: song.performanceSongId,
       sessions: columns.map((column) => ({
         performanceSessionColumnId: column.performanceSessionColumnId,
         assignedUserId: nextDraft[column.performanceSessionColumnId] ?? '',
@@ -967,6 +1097,10 @@ export function PerformanceGridPage() {
       return;
     }
 
+    if (!canManageSong(currentSong) || !canManageSong(targetSong)) {
+      return;
+    }
+
     await Promise.all([
       updateSongOrderMutation.mutateAsync({
         performanceId: selectedPerformanceId,
@@ -987,6 +1121,11 @@ export function PerformanceGridPage() {
   };
 
   const handleSongDragStart = (event: DragEvent<HTMLElement>, song: PerformanceSongSummary) => {
+    if (!canManageSong(song)) {
+      event.preventDefault();
+      return;
+    }
+
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', String(song.performanceSongId));
 
@@ -1040,7 +1179,11 @@ export function PerformanceGridPage() {
       return;
     }
 
-    if (draggingSong.selectionStatus !== targetSong.selectionStatus) {
+    if (
+      draggingSong.selectionStatus !== targetSong.selectionStatus ||
+      !canManageSong(draggingSong) ||
+      !canManageSong(targetSong)
+    ) {
       clearSongDragState();
       return;
     }
@@ -1060,18 +1203,23 @@ export function PerformanceGridPage() {
     nextSongs.splice(toIndex, 0, movedSong);
 
     const orderNumbers = groupSongs.map((song) => song.orderNo);
+    const changedSongs = nextSongs
+      .map((song, index) => ({ song, orderNo: orderNumbers[index] }))
+      .filter(({ song, orderNo }) => song.orderNo !== orderNo);
+    if (changedSongs.some(({ song }) => !canManageSong(song))) {
+      clearSongDragState();
+      return;
+    }
+
     try {
       await Promise.all(
-        nextSongs
-          .map((song, index) => ({ song, orderNo: orderNumbers[index] }))
-          .filter(({ song, orderNo }) => song.orderNo !== orderNo)
-          .map(({ song, orderNo }) =>
-            updateSongOrderMutation.mutateAsync({
-              performanceId: selectedPerformanceId,
-              songId: song.performanceSongId,
-              orderNo,
-            }),
-          ),
+        changedSongs.map(({ song, orderNo }) =>
+          updateSongOrderMutation.mutateAsync({
+            performanceId: selectedPerformanceId,
+            songId: song.performanceSongId,
+            orderNo,
+          }),
+        ),
       );
     } finally {
       clearSongDragState();
@@ -1155,19 +1303,40 @@ export function PerformanceGridPage() {
 
           {performances.length ? (
             performances.map((performance) => (
-              <button
+              <div
                 key={performance.performanceId}
-                type="button"
-                onClick={() => setSelectedPerformanceId(performance.performanceId)}
-                className="rounded-[28px] border border-slate-200 bg-white px-6 py-6 text-left shadow-[0_14px_30px_rgba(15,23,42,0.04)] transition hover:-translate-y-1 hover:border-[rgba(95,75,182,0.2)] hover:shadow-[0_18px_36px_rgba(52,35,110,0.10)]"
+                className="relative rounded-[28px] border border-slate-200 bg-white px-6 py-6 text-left shadow-[0_14px_30px_rgba(15,23,42,0.04)] transition hover:-translate-y-1 hover:border-[rgba(95,75,182,0.2)] hover:shadow-[0_18px_36px_rgba(52,35,110,0.10)]"
               >
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Performance</p>
-                <h2 className="mt-4 line-clamp-2 text-2xl font-semibold text-slate-900">{performance.title}</h2>
-                <div className="mt-8 flex items-center justify-between text-sm text-slate-500">
-                  <span>{performance.songCount}곡</span>
-                  <span>열기</span>
-                </div>
-              </button>
+                {isAdmin ? (
+                  <button
+                    type="button"
+                    aria-label={`${performance.title} 공연 수정`}
+                    className="absolute left-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full text-xl font-bold leading-none text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                    onClick={() => openUpdatePerformanceModalFor(performance)}
+                  >
+                    ⋮
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => selectPerformance(performance.performanceId)}
+                  className="block w-full text-left"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className={cn('text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400', isAdmin && 'pl-8')}>
+                      Performance
+                    </p>
+                    <StatusBadge tone={performanceStatusMeta[performance.status ?? 'ONGOING'].tone}>
+                      {performanceStatusMeta[performance.status ?? 'ONGOING'].label}
+                    </StatusBadge>
+                  </div>
+                  <h2 className="mt-4 line-clamp-2 text-2xl font-semibold text-slate-900">{performance.title}</h2>
+                  <div className="mt-8 flex items-center justify-between text-sm text-slate-500">
+                    <span>{performance.songCount}곡</span>
+                    <span>열기</span>
+                  </div>
+                </button>
+              </div>
             ))
           ) : (
             <Card className="sm:col-span-2 xl:col-span-3">
@@ -1239,10 +1408,10 @@ export function PerformanceGridPage() {
             type="button"
             onClick={() => setIsSidebarOpen(true)}
             aria-label="사이드바 열기"
-            className="fixed bottom-4 left-4 z-40 inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-[0_12px_28px_rgba(15,23,42,0.14)] transition hover:border-[#5a43ba]/30 hover:text-[#5a43ba] xl:absolute xl:left-0 xl:top-6 xl:h-11 xl:w-11 xl:rounded-lg xl:px-0 xl:text-xl"
+            className="fixed bottom-4 left-4 z-40 inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-[0_12px_28px_rgba(15,23,42,0.14)] transition hover:border-[#5a43ba]/30 hover:text-[#5a43ba] xl:sticky xl:top-24 xl:bottom-auto xl:left-0 xl:min-h-10 xl:w-fit xl:rounded-lg xl:px-3 xl:shadow-[0_10px_22px_rgba(15,23,42,0.10)]"
           >
-            <span className="text-lg leading-none xl:block">›</span>
-            <span className="xl:hidden">공연 메뉴</span>
+            <span className="text-lg leading-none">›</span>
+            <span>공연관리</span>
           </button>
         ) : null}
 
@@ -1256,18 +1425,25 @@ export function PerformanceGridPage() {
         >
           <Card className="flex h-full flex-col gap-5 overflow-hidden border border-[rgba(95,75,182,0.1)] bg-white text-slate-900 shadow-[0_18px_36px_rgba(52,35,110,0.08)] xl:h-auto">
             <div className="flex items-start justify-between gap-3">
-              <h2 className="min-w-0 text-xl font-semibold leading-7 text-slate-900">{selectedPerformanceTitle}</h2>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="shrink-0 rounded-lg bg-slate-50 px-3 text-slate-600 shadow-none ring-slate-200 hover:bg-slate-100 hover:text-slate-900"
-                onClick={() => setIsMemberManageModalOpen(true)}
-              >
-                멤버 관리
-              </Button>
+              <div className="min-w-0 space-y-2">
+                <h2 className="min-w-0 text-xl font-semibold leading-7 text-slate-900">{selectedPerformanceTitle}</h2>
+                <StatusBadge tone={performanceStatusMeta[selectedPerformanceStatus].tone}>
+                  {performanceStatusMeta[selectedPerformanceStatus].label}
+                </StatusBadge>
+              </div>
+              <div className="flex shrink-0 flex-col gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="rounded-lg bg-slate-50 px-3 text-slate-600 shadow-none ring-slate-200 hover:bg-slate-100 hover:text-slate-900"
+                  onClick={() => setIsMemberManageModalOpen(true)}
+                >
+                  멤버 관리
+                </Button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+            <div className="grid grid-cols-3 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1 xl:hidden">
               {stageOptions.map((option) => (
                 <button
                   key={option.id}
@@ -1530,12 +1706,17 @@ export function PerformanceGridPage() {
                   <div className="space-y-3">
                     {catalogPageSongs.map((song) => {
                       const draft = songDrafts[song.performanceSongId] ?? toSongDraft(song);
-                      const detail = songDetailsById.get(song.performanceSongId);
-                      const isLockedSong = detail?.chatRoomCreated === true;
+                      const isLockedSong = isChatRoomCreated(song.performanceSongId);
+                      const canManage = canManageSong(song);
                       const orderGroupSongs = songsByStatus[song.selectionStatus];
                       const orderGroupIndex = orderGroupSongs.findIndex(
                         (groupSong) => groupSong.performanceSongId === song.performanceSongId,
                       );
+                      const previousOrderSong = orderGroupIndex > 0 ? orderGroupSongs[orderGroupIndex - 1] : null;
+                      const nextOrderSong =
+                        orderGroupIndex >= 0 && orderGroupIndex < orderGroupSongs.length - 1
+                          ? orderGroupSongs[orderGroupIndex + 1]
+                          : null;
 
                       return (
                         <div
@@ -1562,13 +1743,13 @@ export function PerformanceGridPage() {
                           <div className="hidden items-end md:flex">
                             <button
                               type="button"
-                              draggable={!updateSongOrderMutation.isPending}
+                              draggable={canManage && !updateSongOrderMutation.isPending}
                               aria-label={`${song.songTitle} 순서 드래그`}
                               title="드래그해서 순서 변경"
                               onDragStart={(event) => handleSongDragStart(event, song)}
                               onDragEnd={clearSongDragState}
                               className="flex h-10 w-10 cursor-grab items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-lg font-bold leading-none text-slate-400 transition hover:border-[#5a43ba]/30 hover:bg-[#f3efff] hover:text-[#5a43ba] active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-40"
-                              disabled={updateSongOrderMutation.isPending}
+                              disabled={!canManage || updateSongOrderMutation.isPending}
                             >
                               ⋮⋮
                             </button>
@@ -1588,7 +1769,7 @@ export function PerformanceGridPage() {
                                 }))
                               }
                               onBlur={() => void persistSongDraft(song)}
-                              disabled={isLockedSong}
+                              disabled={isLockedSong || !canManage}
                             />
                           </FormField>
 
@@ -1606,7 +1787,7 @@ export function PerformanceGridPage() {
                                 }))
                               }
                               onBlur={() => void persistSongDraft(song)}
-                              disabled={isLockedSong}
+                              disabled={isLockedSong || !canManage}
                             />
                           </FormField>
 
@@ -1614,7 +1795,7 @@ export function PerformanceGridPage() {
                             <span className="field-label">악보 여부</span>
                             <button
                               type="button"
-                              disabled={isLockedSong}
+                              disabled={isLockedSong || !canManage}
                               onClick={() => {
                                 const nextDraft = {
                                   ...draft,
@@ -1631,7 +1812,7 @@ export function PerformanceGridPage() {
                               }}
                               className={cn(
                                 'h-10 rounded-xl border text-sm font-semibold transition',
-                                isLockedSong && 'cursor-not-allowed opacity-55',
+                                (isLockedSong || !canManage) && 'cursor-not-allowed opacity-55',
                                 draft.isSheet
                                   ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
                                   : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100',
@@ -1644,9 +1825,9 @@ export function PerformanceGridPage() {
                           <div className="flex flex-col gap-2">
                             <div className="flex items-center justify-between gap-2">
                               <span className="field-label">현재 상태</span>
-                              {!isAdmin ? (
+                              {!canManage ? (
                                 <span className="text-[11px] font-semibold text-slate-500">
-                                  관리자만 변경 가능
+                                  작성자 또는 관리자만 변경 가능
                                 </span>
                               ) : null}
                             </div>
@@ -1655,7 +1836,7 @@ export function PerformanceGridPage() {
                                 <button
                                   key={status}
                                   type="button"
-                                  disabled={!isAdmin || updateSongStatusMutation.isPending}
+                                  disabled={!canManage || updateSongStatusMutation.isPending}
                                   onClick={() => {
                                     const nextDraft = {
                                       ...draft,
@@ -1694,7 +1875,13 @@ export function PerformanceGridPage() {
                                 size="sm"
                                 variant="ghost"
                                 className="h-10 rounded-xl px-2"
-                                disabled={orderGroupIndex <= 0 || updateSongOrderMutation.isPending}
+                                disabled={
+                                  orderGroupIndex <= 0 ||
+                                  !canManage ||
+                                  !previousOrderSong ||
+                                  !canManageSong(previousOrderSong) ||
+                                  updateSongOrderMutation.isPending
+                                }
                                 onClick={() => void moveSongOrder(orderGroupSongs, orderGroupIndex, -1)}
                               >
                                 위
@@ -1706,6 +1893,9 @@ export function PerformanceGridPage() {
                                 disabled={
                                   orderGroupIndex < 0 ||
                                   orderGroupIndex >= orderGroupSongs.length - 1 ||
+                                  !canManage ||
+                                  !nextOrderSong ||
+                                  !canManageSong(nextOrderSong) ||
                                   updateSongOrderMutation.isPending
                                 }
                                 onClick={() => void moveSongOrder(orderGroupSongs, orderGroupIndex, 1)}
@@ -1720,7 +1910,7 @@ export function PerformanceGridPage() {
                               size="sm"
                               variant="ghost"
                               className="min-h-10 w-full rounded-xl text-rose-700 hover:bg-rose-50"
-                              disabled={deleteSongMutation.isPending || isLockedSong}
+                              disabled={deleteSongMutation.isPending || isLockedSong || !canManage}
                               onClick={() => setSongPendingDelete(song)}
                             >
                               삭제
@@ -1782,6 +1972,7 @@ export function PerformanceGridPage() {
                 ) : (
                   <div className="space-y-3">
                     {statusSortedSongs.map((song) => {
+                      const canManage = canManageSong(song);
                       return (
                         <div
                           key={song.performanceSongId}
@@ -1810,7 +2001,7 @@ export function PerformanceGridPage() {
                                   key={status}
                                   size="sm"
                                   variant={song.selectionStatus === status ? 'secondary' : 'ghost'}
-                                  disabled={!isAdmin || updateSongStatusMutation.isPending}
+                                  disabled={!canManage || updateSongStatusMutation.isPending}
                                   onClick={() =>
                                     updateSongStatusMutation.mutate({
                                       performanceId: selectedPerformanceId,
@@ -1895,8 +2086,9 @@ export function PerformanceGridPage() {
                       ) : null}
 
                       {mobileFilteredConfirmedSongs.map((song) => {
-                        const detail = songDetailsById.get(song.performanceSongId);
                         const draft = assignmentDrafts[song.performanceSongId] ?? {};
+                        const chatRoomCreated = isChatRoomCreated(song.performanceSongId);
+                        const canManage = canManageSong(song);
 
                         return (
                           <div
@@ -1911,8 +2103,8 @@ export function PerformanceGridPage() {
                                   {song.isSheet ? '악보 O' : '악보 X'}
                                 </p>
                               </div>
-                              <StatusBadge tone={detail?.chatRoomCreated ? 'confirmed' : 'neutral'}>
-                                {detail?.chatRoomCreated ? '생성됨' : '없음'}
+                              <StatusBadge tone={chatRoomCreated ? 'confirmed' : 'neutral'}>
+                                {chatRoomCreated ? '생성됨' : '없음'}
                               </StatusBadge>
                             </div>
 
@@ -1927,6 +2119,7 @@ export function PerformanceGridPage() {
                                   </span>
                                   <Select
                                     value={draft[column.performanceSessionColumnId] ?? ''}
+                                    disabled={!canManage}
                                     className={cn(
                                       'h-11 rounded-xl border-slate-300 bg-slate-50 pl-3 pr-9 text-sm font-medium text-slate-800 focus:ring-2',
                                       !draft[column.performanceSessionColumnId] && 'text-slate-500',
@@ -1937,7 +2130,7 @@ export function PerformanceGridPage() {
                                         [column.performanceSessionColumnId]: event.target.value,
                                       };
 
-                                      void persistAssignmentDraft(song.performanceSongId, nextDraft);
+                                      void persistAssignmentDraft(song, nextDraft);
                                     }}
                                   >
                                     <option value="">{column.isRequired ? '선택 필요' : '미배정'}</option>
@@ -1972,8 +2165,9 @@ export function PerformanceGridPage() {
                         </div>
 
                         {confirmedSongs.map((song) => {
-                          const detail = songDetailsById.get(song.performanceSongId);
                           const draft = assignmentDrafts[song.performanceSongId] ?? {};
+                          const chatRoomCreated = isChatRoomCreated(song.performanceSongId);
+                          const canManage = canManageSong(song);
 
                           return (
                             <div
@@ -1992,6 +2186,7 @@ export function PerformanceGridPage() {
                                 <Select
                                   key={`${song.performanceSongId}-${column.performanceSessionColumnId}`}
                                   value={draft[column.performanceSessionColumnId] ?? ''}
+                                  disabled={!canManage}
                                   className={cn(
                                     'h-9 rounded-lg border-slate-300 bg-slate-50 pl-2.5 pr-8 text-[13px] font-medium text-slate-800 focus:ring-2',
                                     !draft[column.performanceSessionColumnId] && 'text-slate-500',
@@ -2002,7 +2197,7 @@ export function PerformanceGridPage() {
                                       [column.performanceSessionColumnId]: event.target.value,
                                     };
 
-                                    void persistAssignmentDraft(song.performanceSongId, nextDraft);
+                                    void persistAssignmentDraft(song, nextDraft);
                                   }}
                                 >
                                   <option value="">{column.isRequired ? '선택 필요' : '미배정'}</option>
@@ -2015,8 +2210,8 @@ export function PerformanceGridPage() {
                               ))}
 
                               <div className="flex items-center">
-                                <StatusBadge tone={detail?.chatRoomCreated ? 'confirmed' : 'neutral'}>
-                                  {detail?.chatRoomCreated ? '생성됨' : '없음'}
+                                <StatusBadge tone={chatRoomCreated ? 'confirmed' : 'neutral'}>
+                                  {chatRoomCreated ? '생성됨' : '없음'}
                                 </StatusBadge>
                               </div>
                             </div>
@@ -2460,11 +2655,83 @@ export function PerformanceGridPage() {
       </Modal>
 
       <Modal
+        open={isUpdatePerformanceModalOpen}
+        title="공연 수정"
+        description="공연 제목과 진행 상태는 관리자만 수정할 수 있습니다."
+        onClose={() => {
+          setIsUpdatePerformanceModalOpen(false);
+          setUpdatePerformanceForm(emptyUpdatePerformanceForm);
+        }}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setIsUpdatePerformanceModalOpen(false);
+                setUpdatePerformanceForm(emptyUpdatePerformanceForm);
+              }}
+            >
+              취소
+            </Button>
+            <Button
+              disabled={
+                !selectedPerformanceId ||
+                !updatePerformanceForm.title.trim() ||
+                updatePerformanceMutation.isPending
+              }
+              onClick={() => {
+                if (!selectedPerformanceId) {
+                  return;
+                }
+
+                updatePerformanceMutation.mutate({
+                  performanceId: selectedPerformanceId,
+                  payload: {
+                    title: updatePerformanceForm.title.trim(),
+                    status: updatePerformanceForm.status,
+                  },
+                });
+              }}
+            >
+              {updatePerformanceMutation.isPending ? '수정 중...' : '수정하기'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="grid gap-4">
+          <FormField label="공연 제목">
+            <Input
+              value={updatePerformanceForm.title}
+              onChange={(event) =>
+                setUpdatePerformanceForm((current) => ({ ...current, title: event.target.value }))
+              }
+              placeholder="공연 제목 입력"
+            />
+          </FormField>
+          <FormField label="공연 상태">
+            <Select
+              value={updatePerformanceForm.status}
+              onChange={(event) =>
+                setUpdatePerformanceForm((current) => ({
+                  ...current,
+                  status: event.target.value as PerformanceStatus,
+                }))
+              }
+            >
+              <option value="ONGOING">진행중</option>
+              <option value="COMPLETED">완료</option>
+            </Select>
+          </FormField>
+        </div>
+      </Modal>
+
+      <Modal
         open={isMemberManageModalOpen}
         title="공연 멤버 관리"
         onClose={() => {
           setIsMemberManageModalOpen(false);
-          setSelectedMemberUserId('');
+          setSelectedMemberUserIds([]);
+          setVisibleMemberCohortCount(initialVisibleMemberCohortCount);
         }}
         footer={
           <div className="flex justify-end">
@@ -2472,7 +2739,8 @@ export function PerformanceGridPage() {
               variant="ghost"
               onClick={() => {
                 setIsMemberManageModalOpen(false);
-                setSelectedMemberUserId('');
+                setSelectedMemberUserIds([]);
+                setVisibleMemberCohortCount(initialVisibleMemberCohortCount);
               }}
             >
               닫기
@@ -2481,34 +2749,124 @@ export function PerformanceGridPage() {
         }
       >
         <div className="space-y-5">
-          <div className="flex flex-col gap-3 md:flex-row">
-            <Select
-              value={selectedMemberUserId}
-              onChange={(event) => setSelectedMemberUserId(event.target.value)}
-              className="h-11 flex-1 rounded-2xl"
-            >
-              <option value="">추가할 멤버 선택</option>
-              {availableUsersForMembers.map((user) => (
-                <option key={user.userId} value={user.userId}>
-                  {formatUserAssignmentLabel(user)}
-                </option>
-              ))}
-            </Select>
+          <div className="space-y-3">
+            <div className="max-h-64 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50/70 p-2">
+              {availableUsersForMembers.length ? (
+                <div className="space-y-4">
+                  {visibleMemberGroups.map((group) => {
+                    const groupUserIds = group.users.map((user) => String(user.userId));
+                    const selectedGroupCount = groupUserIds.filter((userId) =>
+                      selectedMemberUserIds.includes(userId),
+                    ).length;
+                    const isGroupFullySelected = selectedGroupCount === groupUserIds.length;
+
+                    return (
+                      <div key={group.cohort} className="space-y-2">
+                        <div className="flex items-center justify-between gap-3 px-1">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-800">{group.cohort}기</p>
+                            <p className="text-xs font-semibold text-slate-400">
+                              {selectedGroupCount} / {group.users.length}명 선택
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="min-h-8 rounded-lg bg-white px-2.5 text-xs text-slate-600"
+                            onClick={() =>
+                              setSelectedMemberUserIds((current) => {
+                                const currentSet = new Set(current);
+
+                                if (isGroupFullySelected) {
+                                  groupUserIds.forEach((userId) => currentSet.delete(userId));
+                                } else {
+                                  groupUserIds.forEach((userId) => currentSet.add(userId));
+                                }
+
+                                return Array.from(currentSet);
+                              })
+                            }
+                          >
+                            {isGroupFullySelected ? '전체 해제' : '전체 선택'}
+                          </Button>
+                        </div>
+                        <div className="grid gap-1 sm:grid-cols-2">
+                          {group.users.map((user) => {
+                            const value = String(user.userId);
+                            const checked = selectedMemberUserIds.includes(value);
+
+                            return (
+                              <label
+                                key={user.userId}
+                                className={cn(
+                                  'flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition',
+                                  checked
+                                    ? 'border-[#5a43ba]/30 bg-[#f3efff] text-[#4d36a2]'
+                                    : 'border-transparent bg-white text-slate-700 hover:border-slate-200',
+                                )}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(event) =>
+                                    setSelectedMemberUserIds((current) =>
+                                      event.target.checked
+                                        ? [...current, value]
+                                        : current.filter((userId) => userId !== value),
+                                    )
+                                  }
+                                  className="h-4 w-4 rounded border-slate-300 text-[#5a43ba] focus:ring-[#5a43ba]"
+                                />
+                                <span className="min-w-0 truncate">{formatUserAssignmentLabel(user)}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {hiddenMemberCohortCount > 0 ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="w-full rounded-xl bg-white text-slate-600"
+                      onClick={() =>
+                        setVisibleMemberCohortCount((current) =>
+                          Math.min(availableMemberGroups.length, current + 1),
+                        )
+                      }
+                    >
+                      이전 기수 더보기
+                    </Button>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="px-3 py-8 text-center text-sm font-semibold text-slate-500">
+                  추가할 수 있는 활성 멤버가 없습니다
+                </p>
+              )}
+            </div>
             <Button
-              className="md:min-w-[108px]"
-              disabled={!selectedPerformanceId || !selectedMemberUserId || createPerformanceMemberMutation.isPending}
+              className="w-full md:w-auto md:min-w-[132px]"
+              disabled={!selectedPerformanceId || !selectedMemberUserIds.length || createPerformanceMemberMutation.isPending}
               onClick={() => {
-                if (!selectedPerformanceId || !selectedMemberUserId) {
+                if (!selectedPerformanceId || !selectedMemberUserIds.length) {
                   return;
                 }
 
                 createPerformanceMemberMutation.mutate({
                   performanceId: selectedPerformanceId,
-                  userId: Number(selectedMemberUserId),
+                  userIds: selectedMemberUserIds.map(Number),
                 });
               }}
             >
-              {createPerformanceMemberMutation.isPending ? '추가 중...' : '멤버 추가'}
+              {createPerformanceMemberMutation.isPending
+                ? '추가 중...'
+                : selectedMemberUserIds.length
+                  ? `${selectedMemberUserIds.length}명 추가`
+                  : '멤버 추가'}
             </Button>
           </div>
 

@@ -8,7 +8,8 @@ public record PerformanceSongResponse(
         String singer,
         Boolean isSheet,
         Integer orderNo,
-        PerformanceSong.SelectionStatus selectionStatus
+        PerformanceSong.SelectionStatus selectionStatus,
+        Integer createdByUserId
 ) {
 
     public static PerformanceSongResponse from(PerformanceSong performanceSong) {
@@ -18,7 +19,8 @@ public record PerformanceSongResponse(
                 performanceSong.getSinger(),
                 performanceSong.getIsSheet(),
                 performanceSong.getOrderNo(),
-                performanceSong.getSelectionStatus()
+                performanceSong.getSelectionStatus(),
+                performanceSong.getCreatedByUser() == null ? null : performanceSong.getCreatedByUser().getUserId()
         );
     }
 }

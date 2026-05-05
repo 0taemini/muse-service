@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useLogout } from '@features/auth/hooks/use-auth-actions';
@@ -132,6 +132,7 @@ function FloatingNavDropdown({
 }
 
 export function MuseFloatingHeader() {
+  const headerRef = useRef<HTMLDivElement | null>(null);
   const accessToken = useAuthStore((state) => state.accessToken);
   const userEmail = useAuthStore((state) => state.userEmail);
   const logoutMutation = useLogout();
@@ -178,9 +179,31 @@ export function MuseFloatingHeader() {
     closeMenus();
   }, [location.pathname, location.search]);
 
+  useEffect(() => {
+    if (!isMobileMenuOpen) {
+      return;
+    }
+
+    const closeMobileMenuOnOutsideClick = (event: PointerEvent) => {
+      if (headerRef.current?.contains(event.target as Node)) {
+        return;
+      }
+
+      setIsMobileMenuOpen(false);
+      setIsMobileRecoveryMenuOpen(false);
+      setIsMobileMyPageMenuOpen(false);
+    };
+
+    document.addEventListener('pointerdown', closeMobileMenuOnOutsideClick);
+
+    return () => {
+      document.removeEventListener('pointerdown', closeMobileMenuOnOutsideClick);
+    };
+  }, [isMobileMenuOpen]);
+
   return (
     <div className="sticky top-2 z-40 mb-4 w-full px-1 pt-2 md:top-4 md:mb-5 md:pt-4">
-      <div className="relative mx-auto w-full max-w-[1328px]">
+      <div ref={headerRef} className="relative mx-auto w-full max-w-[1328px]">
         <div className="flex w-full items-center justify-between gap-3 rounded-full border border-[rgba(95,75,182,0.16)] bg-white px-3 py-1.5 shadow-[0_10px_24px_rgba(41,28,93,0.06)] md:px-4 md:py-2">
           <Link to="/" className="flex min-w-0 items-center gap-3">
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-[14px] bg-[linear-gradient(135deg,#d78fff_0%,#a783ff_56%,#7f9150_100%)] text-lg font-bold text-white shadow-[0_10px_22px_rgba(144,108,214,0.28)] md:h-10 md:w-10 md:text-xl">
