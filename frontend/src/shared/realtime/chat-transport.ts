@@ -46,7 +46,7 @@ export class ChatTransport {
       return;
     }
 
-    const socket = new WebSocket(`${resolveWebSocketBaseUrl()}/ws`);
+    const socket = new WebSocket(`${resolveWebSocketBaseUrl()}/ws/`);
     this.socket = socket;
 
     socket.onopen = () => {
