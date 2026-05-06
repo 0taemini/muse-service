@@ -125,6 +125,7 @@ const catalogPageSize = 10;
 const initialVisibleMemberCohortCount = 2;
 const catalogStatusFilterOptions: SongStatusFilter[] = ['ALL', ...selectionStatusOrder];
 const selectedPerformanceStorageKey = 'muse:selected-performance-id';
+const chatRoomSearchParam = 'chatRoomId';
 const stageOptions: { id: StageId; label: string }[] = [
   { id: 'catalog', label: '곡 목록' },
   { id: 'review', label: '선곡 심사' },
@@ -532,6 +533,27 @@ export function PerformanceGridPage() {
 
     window.localStorage.setItem(selectedPerformanceStorageKey, String(performanceId));
   };
+  const buildChatRoomPath = (chatRoomId: number | null) => {
+    const params = new URLSearchParams(location.search);
+    if (chatRoomId === null) {
+      params.delete(chatRoomSearchParam);
+    } else {
+      params.set(chatRoomSearchParam, String(chatRoomId));
+    }
+
+    const nextSearch = params.toString();
+    return `${location.pathname}${nextSearch ? `?${nextSearch}` : ''}`;
+  };
+  const clearChatRoomState = () => {
+    chatTransportRef.current?.sendTyping(false);
+    setSelectedChatRoomId(null);
+    setChatMessages([]);
+    setChatInput('');
+    setTargetSessionId('');
+    setTypingUsers([]);
+    setChatConnectionMessage('');
+    setIsChatActionMenuOpen(false);
+  };
   const isChatRoomCreated = (performanceSongId: number) =>
     existingChatRoomSongIds.has(performanceSongId) ||
     songDetailsById.get(performanceSongId)?.chatRoomCreated === true;
@@ -607,6 +629,18 @@ export function PerformanceGridPage() {
     setIsCreateSongModalOpen(false);
     navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
   }, [location.pathname, location.search, location.state, navigate]);
+
+  useEffect(() => {
+    const chatRoomIdFromUrl = Number(new URLSearchParams(location.search).get(chatRoomSearchParam));
+    if (Number.isFinite(chatRoomIdFromUrl) && chatRoomIdFromUrl > 0) {
+      setSelectedChatRoomId((current) => (current === chatRoomIdFromUrl ? current : chatRoomIdFromUrl));
+      return;
+    }
+
+    if (selectedChatRoomId !== null) {
+      clearChatRoomState();
+    }
+  }, [location.search, selectedChatRoomId]);
 
   useEffect(() => {
     const detail = chatRoomDetailQuery.data?.data;
@@ -1227,23 +1261,24 @@ export function PerformanceGridPage() {
   };
 
   const openChatRoom = (chatRoomId: number) => {
+    const currentChatRoomId = new URLSearchParams(location.search).get(chatRoomSearchParam);
     setSelectedChatRoomId(chatRoomId);
     setIsMobileChatRoomsModalOpen(false);
     setMobileChatRoomSearch('');
     setChatInput('');
     setChatConnectionMessage('');
     setIsChatActionMenuOpen(false);
+    navigate(buildChatRoomPath(chatRoomId), {
+      replace: currentChatRoomId === String(chatRoomId),
+      state: location.state,
+    });
   };
 
   const closeChatRoom = () => {
-    chatTransportRef.current?.sendTyping(false);
-    setSelectedChatRoomId(null);
-    setChatMessages([]);
-    setChatInput('');
-    setTargetSessionId('');
-    setTypingUsers([]);
-    setChatConnectionMessage('');
-    setIsChatActionMenuOpen(false);
+    clearChatRoomState();
+    if (new URLSearchParams(location.search).has(chatRoomSearchParam)) {
+      navigate(buildChatRoomPath(null), { replace: true, state: location.state });
+    }
   };
 
   const handleChatInputChange = (value: string) => {

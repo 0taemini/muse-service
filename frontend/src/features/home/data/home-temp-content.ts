@@ -25,22 +25,22 @@ export const performancePosters = [
     alt: 'MUSE 2024 정기 공연 포스터',
   },
   {
-    title: '2025 초반 공연',
+    title: '2025 봄 공연',
     description: '공연 시즌 초반의 분위기와 콘셉트를 담은 포스터입니다.',
     src: poster2025Early,
-    alt: 'MUSE 2025 초반 공연 포스터',
-  },
-  {
-    title: '2025 정기 공연',
-    description: '메인 공연 시즌을 대표하는 정기 공연 포스터입니다.',
-    src: poster2025Regular,
-    alt: 'MUSE 2025 정기 공연 포스터',
+    alt: 'MUSE 2025 봄 공연 포스터',
   },
   {
     title: '2025 여름 공연',
     description: '여름 시즌 공연의 무드를 담은 포스터입니다.',
     src: poster2025Summer,
     alt: 'MUSE 2025 여름 공연 포스터',
+  },
+    {
+    title: '2025 정기 공연',
+    description: '메인 공연 시즌을 대표하는 정기 공연 포스터입니다.',
+    src: poster2025Regular,
+    alt: 'MUSE 2025 정기 공연 포스터',
   },
 ] as const;
 
