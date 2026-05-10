@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useMemo, useRef, useState, type CSSProperties, type TouchEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toApiMessage } from '@features/auth/api/auth-api';
 import { useAuthStore } from '@features/auth/store/auth-store';
@@ -113,11 +113,19 @@ function addDays(date: Date, amount: number) {
 }
 
 function toDateTimeInput(value: string) {
-  return value.slice(0, 16);
+  const normalizedValue = value.trim().replace(' ', 'T');
+  const matched = normalizedValue.match(/^(\d{4}-\d{2}-\d{2})(?:T(\d{2}:\d{2}))?/);
+
+  if (!matched) {
+    return '';
+  }
+
+  return `${matched[1]}T${matched[2] ?? '00:00'}`;
 }
 
 function toDatePart(value: string) {
-  return toDateTimeInput(value).slice(0, 10);
+  const matched = value.trim().match(/^(\d{4}-\d{2}-\d{2})/);
+  return matched?.[1] ?? '';
 }
 
 function toAllDayStart(dateKey: string) {
@@ -320,8 +328,8 @@ function formFromEvent(event: CalendarEvent): CalendarForm {
 
   return {
     title: event.title,
-    startAt: toDateTimeInput(event.startAt),
-    endAt: toDateTimeInput(event.endAt),
+    startAt: allDay ? toDatePart(event.startAt) : toDateTimeInput(event.startAt),
+    endAt: allDay ? toDatePart(event.endAt) : toDateTimeInput(event.endAt),
     allDay,
     eventType: event.eventType,
     location: event.location ?? '',
@@ -330,8 +338,8 @@ function formFromEvent(event: CalendarEvent): CalendarForm {
 }
 
 function payloadFromForm(form: CalendarForm): CalendarEventPayload {
-  const startAt = form.allDay ? toAllDayStart(form.startAt) : form.startAt;
-  const endAt = form.allDay ? toAllDayEnd(form.endAt) : form.endAt;
+  const startAt = form.allDay ? toAllDayStart(toDatePart(form.startAt)) : toDateTimeInput(form.startAt);
+  const endAt = form.allDay ? toAllDayEnd(toDatePart(form.endAt)) : toDateTimeInput(form.endAt);
 
   return {
     title: form.title.trim(),
@@ -354,6 +362,8 @@ export function MuseCalendarSection() {
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [deletingEvent, setDeletingEvent] = useState<CalendarEvent | null>(null);
   const [form, setForm] = useState<CalendarForm>(emptyForm);
+  const calendarSwipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const suppressDateSelectRef = useRef(false);
 
   const calendarDays = useMemo(() => buildCalendarDays(monthDate), [monthDate]);
   const calendarWeeks = useMemo(() => chunkWeeks(calendarDays), [calendarDays]);
@@ -422,8 +432,8 @@ export function MuseCalendarSection() {
       return {
         ...current,
         allDay: false,
-        startAt: `${current.startAt || selectedDate}T09:00`,
-        endAt: `${current.endAt || current.startAt || selectedDate}T10:00`,
+        startAt: `${toDatePart(current.startAt || selectedDate)}T09:00`,
+        endAt: `${toDatePart(current.endAt || current.startAt || selectedDate)}T10:00`,
       };
     });
   };
@@ -436,6 +446,11 @@ export function MuseCalendarSection() {
   };
 
   const selectDate = (dateKey: string) => {
+    if (suppressDateSelectRef.current) {
+      suppressDateSelectRef.current = false;
+      return;
+    }
+
     setSelectedDate(dateKey);
 
     if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
@@ -474,6 +489,35 @@ export function MuseCalendarSection() {
     setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1));
   };
 
+  const handleCalendarTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0];
+    calendarSwipeStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+    };
+  };
+
+  const handleCalendarTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
+    const start = calendarSwipeStartRef.current;
+    const touch = event.changedTouches[0];
+    calendarSwipeStartRef.current = null;
+
+    if (!start) {
+      return;
+    }
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    const isHorizontalSwipe = Math.abs(deltaX) > 48 && Math.abs(deltaX) > Math.abs(deltaY) * 1.4;
+
+    if (!isHorizontalSwipe) {
+      return;
+    }
+
+    suppressDateSelectRef.current = true;
+    moveMonth(deltaX < 0 ? 1 : -1);
+  };
+
   return (
     <section className="space-y-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -481,9 +525,6 @@ export function MuseCalendarSection() {
           <h2 className="text-[2rem] font-semibold tracking-tight text-[#241b42] md:text-[2.35rem]">
             MUSE 일정
           </h2>
-          <p className="mt-2 text-sm leading-7 text-[#6f678b]">
-            뮤즈의 공연, 합주, 회의, 행사를 한눈에 확인해요.
-          </p>
         </div>
         {isAuthenticated ? (
           <Button className="hidden md:inline-flex md:w-auto" onClick={openCreateForm}>
@@ -494,13 +535,8 @@ export function MuseCalendarSection() {
 
       <div className="rounded-[28px] border border-[rgba(95,75,182,0.1)] bg-white p-4 shadow-[0_12px_28px_rgba(52,35,110,0.05)] md:hidden">
         <div>
-          <p className="text-xs font-semibold text-[#5a43ba]">오늘 일정</p>
           <h3 className="mt-1 text-xl font-semibold text-[#241b42]">
-            {new Intl.DateTimeFormat('ko-KR', {
-              month: 'long',
-              day: 'numeric',
-              weekday: 'long',
-            }).format(new Date(`${todayDate}T00:00:00`))}
+            오늘 일정
           </h3>
         </div>
 
@@ -570,7 +606,11 @@ export function MuseCalendarSection() {
             ))}
           </div>
 
-          <div className="space-y-1 md:space-y-2">
+          <div
+            className="space-y-1 md:space-y-2"
+            onTouchStart={handleCalendarTouchStart}
+            onTouchEnd={handleCalendarTouchEnd}
+          >
             {calendarWeeks.map((week) => {
               const weekEventSegments = buildWeekEventSegments(week, events);
               const hiddenEventIndicators = buildHiddenEventIndicators(week, eventsByDate, weekEventSegments);
@@ -645,7 +685,6 @@ export function MuseCalendarSection() {
         <aside className="hidden rounded-[28px] border border-[rgba(95,75,182,0.1)] bg-white p-4 shadow-[0_12px_28px_rgba(52,35,110,0.05)] md:block md:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold text-[#5a43ba]">Selected day</p>
               <h3 className="mt-1 text-xl font-semibold text-[#241b42]">
                 {new Intl.DateTimeFormat('ko-KR', {
                   month: 'long',

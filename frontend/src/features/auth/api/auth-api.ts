@@ -1,6 +1,6 @@
 import { AxiosError } from 'axios';
 import { http } from '@shared/api/http';
-import type { ApiResponse, ErrorResponse } from '@shared/types/api';
+import type { ApiResponse } from '@shared/types/api';
 import type {
   FindEmailPayload,
   LoginFormValues,
@@ -42,11 +42,17 @@ export const authApi = {
     unwrap(http.post('/api/v1/auth/logout')),
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
 export const toApiMessage = (error: unknown) => {
-  const axiosError = error as AxiosError<ErrorResponse | ApiResponse<unknown>>;
+  const axiosError = error as AxiosError<unknown>;
   const payload = axiosError.response?.data;
-  if (payload && 'message' in payload && typeof payload.message === 'string') {
+  if (isRecord(payload) && typeof payload.message === 'string') {
     return payload.message;
+  }
+  if (axiosError.response?.status === 502) {
+    return '서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.';
   }
   return '요청 처리 중 오류가 발생했습니다.';
 };
