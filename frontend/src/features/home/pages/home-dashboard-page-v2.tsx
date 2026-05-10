@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent, type TouchEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '@features/auth/store/auth-store';
+import { MuseCalendarSection } from '@features/calendar/components/muse-calendar-section';
 import {
   galleryPhotos,
   heroContent,
@@ -249,6 +250,8 @@ export function HomeDashboardPageV2() {
           </Link>
         </section>
       ) : null}
+
+      <MuseCalendarSection />
 
       <section className="space-y-5">
         <SectionTitle title="MUSE의 순간들" />
