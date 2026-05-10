@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toApiMessage } from '@features/auth/api/auth-api';
 import { useAuthStore } from '@features/auth/store/auth-store';
@@ -32,13 +32,19 @@ type CalendarDay = {
   inCurrentMonth: boolean;
 };
 
-type MultiDayEventSegment = {
+type WeekEventSegment = {
   event: CalendarEvent;
   startIndex: number;
   span: number;
   lane: number;
   isStart: boolean;
   isEnd: boolean;
+};
+
+type HiddenEventIndicator = {
+  dateKey: string;
+  startIndex: number;
+  count: number;
 };
 
 const emptyForm: CalendarForm = {
@@ -82,6 +88,16 @@ const eventTypeMeta: Record<
 };
 
 const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
+const eventBarPalette = [
+  { backgroundColor: '#8cced0', color: '#14323f' },
+  { backgroundColor: '#b9dfb9', color: '#14323f' },
+  { backgroundColor: '#c9d8ff', color: '#1f2a58' },
+  { backgroundColor: '#df5b64', color: '#ffffff' },
+  { backgroundColor: '#f4c76f', color: '#3a2a10' },
+  { backgroundColor: '#d7c3ff', color: '#2c1d5b' },
+  { backgroundColor: '#f2a7b5', color: '#471925' },
+  { backgroundColor: '#9ec5fe', color: '#172554' },
+];
 
 function toDateInput(date: Date) {
   const year = date.getFullYear();
@@ -169,28 +185,21 @@ function getEventEndDateKey(event: CalendarEvent) {
   return event.endAt.slice(0, 10);
 }
 
-function isMultiDayEvent(event: CalendarEvent) {
-  return getEventStartDateKey(event) !== getEventEndDateKey(event);
-}
-
 function isEventOnDate(event: CalendarEvent, dateKey: string) {
   return getEventStartDateKey(event) <= dateKey && getEventEndDateKey(event) >= dateKey;
 }
 
-function buildMultiDayEventSegments(week: CalendarDay[], events: CalendarEvent[]) {
+function buildWeekEventSegments(week: CalendarDay[], events: CalendarEvent[]) {
   const weekStartKey = week[0].dateKey;
   const weekEndKey = week[6].dateKey;
+  const laneEndIndexes = [-1, -1];
+  const segments: WeekEventSegment[] = [];
 
-  return events
+  const candidates = events
     .filter((event) => {
-      if (!isMultiDayEvent(event)) {
-        return false;
-      }
-
       return getEventStartDateKey(event) <= weekEndKey && getEventEndDateKey(event) >= weekStartKey;
     })
-    .slice(0, 2)
-    .map<MultiDayEventSegment>((event, lane) => {
+    .map((event) => {
       const eventStartKey = getEventStartDateKey(event);
       const eventEndKey = getEventEndDateKey(event);
       const startIndex = Math.max(
@@ -207,16 +216,62 @@ function buildMultiDayEventSegments(week: CalendarDay[], events: CalendarEvent[]
       }
 
       const safeEndIndex = endIndex === -1 ? startIndex : endIndex;
+      const span = safeEndIndex - startIndex + 1;
 
       return {
         event,
         startIndex,
-        span: safeEndIndex - startIndex + 1,
-        lane,
+        span,
         isStart: eventStartKey >= weekStartKey,
         isEnd: eventEndKey <= weekEndKey,
       };
+    })
+    .sort((left, right) => {
+      if (left.startIndex !== right.startIndex) {
+        return left.startIndex - right.startIndex;
+      }
+
+      if (left.span !== right.span) {
+        return right.span - left.span;
+      }
+
+      return left.event.startAt.localeCompare(right.event.startAt);
     });
+
+  candidates.forEach((candidate) => {
+    const lane = laneEndIndexes.findIndex((endIndex) => endIndex < candidate.startIndex);
+
+    if (lane === -1) {
+      return;
+    }
+
+    laneEndIndexes[lane] = candidate.startIndex + candidate.span - 1;
+    segments.push({ ...candidate, lane });
+  });
+
+  return segments;
+}
+
+function buildHiddenEventIndicators(
+  week: CalendarDay[],
+  eventsByDate: Record<string, CalendarEvent[]>,
+  visibleSegments: WeekEventSegment[],
+) {
+  return week.reduce<HiddenEventIndicator[]>((indicators, day, startIndex) => {
+    const dayEvents = eventsByDate[day.dateKey] ?? [];
+    const visibleCount = visibleSegments.filter((segment) => isEventOnDate(segment.event, day.dateKey)).length;
+    const hiddenCount = dayEvents.length - visibleCount;
+
+    if (hiddenCount > 0) {
+      indicators.push({
+        dateKey: day.dateKey,
+        startIndex,
+        count: hiddenCount,
+      });
+    }
+
+    return indicators;
+  }, []);
 }
 
 function formatMonthLabel(monthDate: Date) {
@@ -231,6 +286,33 @@ function formatEventTime(value: string) {
     hour: 'numeric',
     minute: '2-digit',
   }).format(new Date(value));
+}
+
+function getEventBarStyle(event: CalendarEvent): CSSProperties {
+  const palette = eventBarPalette[Math.abs(event.eventId) % eventBarPalette.length];
+  return palette;
+}
+
+function getWeekEventSegmentStyle(segment: WeekEventSegment): CSSProperties {
+  const leftPercent = (segment.startIndex / 7) * 100;
+  const widthPercent = (segment.span / 7) * 100;
+
+  return {
+    ...getEventBarStyle(segment.event),
+    left: `calc(${leftPercent}% + 2px)`,
+    top: `${segment.lane * 22}px`,
+    width: `calc(${widthPercent}% - 4px)`,
+  };
+}
+
+function getHiddenEventIndicatorStyle(indicator: HiddenEventIndicator): CSSProperties {
+  const leftPercent = (indicator.startIndex / 7) * 100;
+
+  return {
+    left: `calc(${leftPercent}% + 2px)`,
+    top: '44px',
+    width: 'calc(14.285714% - 4px)',
+  };
 }
 
 function formFromEvent(event: CalendarEvent): CalendarForm {
@@ -396,8 +478,7 @@ export function MuseCalendarSection() {
     <section className="space-y-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#7b8350]">Calendar</p>
-          <h2 className="mt-2 text-[2rem] font-semibold tracking-tight text-[#241b42] md:text-[2.35rem]">
+          <h2 className="text-[2rem] font-semibold tracking-tight text-[#241b42] md:text-[2.35rem]">
             MUSE 일정
           </h2>
           <p className="mt-2 text-sm leading-7 text-[#6f678b]">
@@ -491,14 +572,13 @@ export function MuseCalendarSection() {
 
           <div className="space-y-1 md:space-y-2">
             {calendarWeeks.map((week) => {
-              const multiDaySegments = buildMultiDayEventSegments(week, events);
+              const weekEventSegments = buildWeekEventSegments(week, events);
+              const hiddenEventIndicators = buildHiddenEventIndicators(week, eventsByDate, weekEventSegments);
 
               return (
                 <div key={week[0].dateKey} className="relative">
                   <div className="grid grid-cols-7">
                     {week.map((day) => {
-                      const dayEvents = day.day === null ? [] : eventsByDate[day.dateKey] ?? [];
-                      const singleDayEvents = dayEvents.filter((event) => !isMultiDayEvent(event));
                       const isSelected = selectedDate === day.dateKey;
                       const isToday = day.dateKey === todayDate;
                       const dayOfWeek = new Date(`${day.dateKey}T00:00:00`).getDay();
@@ -509,14 +589,14 @@ export function MuseCalendarSection() {
                           type="button"
                           onClick={() => selectDate(day.dateKey)}
                           className={cn(
-                            'relative h-[92px] px-1.5 py-2 text-left transition md:h-[126px] md:px-2',
+                            'relative h-[108px] px-1.5 py-2 text-left transition md:h-[132px] md:px-2',
                             'hover:bg-slate-50/70',
                             isSelected ? 'rounded-[10px] ring-2 ring-[#13a78b] ring-offset-[-2px]' : '',
                           )}
                         >
                           <span
                             className={cn(
-                              'relative z-20 inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1 text-sm font-bold md:text-base',
+                              'absolute left-1.5 top-2 z-30 inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1 text-sm font-bold md:left-2 md:text-base',
                               day.inCurrentMonth ? 'text-slate-900' : 'text-slate-300',
                               dayOfWeek === 0 && day.inCurrentMonth ? 'text-rose-500' : '',
                               dayOfWeek === 6 && day.inCurrentMonth ? 'text-sky-600' : '',
@@ -525,55 +605,36 @@ export function MuseCalendarSection() {
                           >
                             {day.day}
                           </span>
-                          <div className="mt-8 min-h-0 space-y-1 overflow-hidden md:mt-9">
-                            {singleDayEvents.slice(0, 1).map((event) => (
-                              <span
-                                key={event.eventId}
-                                className="flex min-w-0 items-center gap-1 truncate text-[10px] font-semibold text-slate-700 md:text-xs"
-                              >
-                                <span
-                                  className={cn(
-                                    'h-4 w-1 shrink-0 rounded-full',
-                                    eventTypeMeta[event.eventType].accentClassName,
-                                  )}
-                                />
-                                <span className="truncate">{event.title}</span>
-                              </span>
-                            ))}
-                            {singleDayEvents.length > 1 ? (
-                              <span className="block px-1 text-[10px] font-bold text-slate-400">
-                                +{singleDayEvents.length - 1}
-                              </span>
-                            ) : null}
-                          </div>
                         </button>
                       );
                     })}
                   </div>
 
-                  <div className="pointer-events-none absolute inset-x-0 top-[44px] z-20 md:top-[50px]">
-                    {multiDaySegments.map((segment) => {
-                      const meta = eventTypeMeta[segment.event.eventType];
-
+                  <div className="pointer-events-none absolute inset-x-0 top-[44px] z-20 md:top-[48px]">
+                    {weekEventSegments.map((segment) => {
                       return (
                         <div
                           key={`${week[0].dateKey}-${segment.event.eventId}`}
                           className={cn(
-                            'absolute h-[18px] truncate px-1.5 text-[10px] font-semibold leading-[18px] md:h-5 md:text-xs md:leading-5',
-                            meta.barClassName,
+                            'absolute h-[18px] truncate px-1 text-[10px] font-semibold leading-[18px] md:h-5 md:px-1.5 md:text-xs md:leading-5',
                             segment.isStart ? 'rounded-l-[4px]' : '',
                             segment.isEnd ? 'rounded-r-[4px]' : '',
                           )}
-                          style={{
-                            left: `${(segment.startIndex / 7) * 100}%`,
-                            top: `${segment.lane * 22}px`,
-                            width: `${(segment.span / 7) * 100}%`,
-                          }}
+                          style={getWeekEventSegmentStyle(segment)}
                         >
                           {segment.isStart ? segment.event.title : ''}
                         </div>
                       );
                     })}
+                    {hiddenEventIndicators.map((indicator) => (
+                      <div
+                        key={`${indicator.dateKey}-hidden-events`}
+                        className="absolute h-[18px] truncate rounded-[4px] bg-slate-100 px-1 text-[10px] font-bold leading-[18px] text-slate-500 md:h-5 md:px-1.5 md:text-xs md:leading-5"
+                        style={getHiddenEventIndicatorStyle(indicator)}
+                      >
+                        +{indicator.count}
+                      </div>
+                    ))}
                   </div>
                 </div>
               );

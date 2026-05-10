@@ -239,8 +239,7 @@ export function HomeDashboardPageV2() {
           >
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/72">Quick Access</p>
-                <p className="mt-1 text-lg font-semibold">합주방 바로가기</p>
+                <p className="text-lg font-semibold">합주방 바로가기</p>
                 <p className="mt-1 text-sm leading-6 text-white/78">공연을 선택하고 곡별 합주방을 바로 확인해요.</p>
               </div>
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/16 text-xl font-semibold">
