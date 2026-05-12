@@ -19,6 +19,12 @@ out/
 # Env
 .env
 
+# Lambda build artifacts
+deploy/lambda/**/node_modules/
+deploy/lambda/**/*.zip
+deploy/lambda/**/dist/
+deploy/lambda/**/build/
+
 # Codex
 AGENTS.md
 doc/
