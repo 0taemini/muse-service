@@ -1,7 +1,10 @@
-import { useEffect, useRef, useState, type MouseEvent, type TouchEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type TouchEvent } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '@features/auth/store/auth-store';
 import { MuseCalendarSection } from '@features/calendar/components/muse-calendar-section';
+import { photoApi, variantUrl } from '@features/photo/api/photo-api';
+import { MemoryCalendarSection } from '@features/photo/components/memory-calendar-section';
 import {
   galleryPhotos,
   heroContent,
@@ -32,20 +35,52 @@ export function HomeDashboardPageV2() {
   const posterTouchStartXRef = useRef<number | null>(null);
   const posterTouchStartYRef = useRef<number | null>(null);
   const suppressPosterClickRef = useRef(false);
+  const postersQuery = useQuery({
+    queryKey: ['home', 'posters'],
+    queryFn: () => photoApi.getImages('POSTER'),
+  });
+
+  const uploadedPosters = useMemo(() => {
+    const posters = postersQuery.data?.data ?? [];
+
+    return [...posters]
+      .sort((left, right) => left.displayOrder - right.displayOrder || right.imageId - left.imageId)
+      .map((poster) => {
+        const src = variantUrl(poster, ['POSTER_1600', 'THUMB_480']);
+
+        if (!src) {
+          return null;
+        }
+
+        return {
+          title: poster.title ?? 'MUSE 포스터',
+          description: poster.description ?? '',
+          src,
+          alt: poster.title ? `MUSE ${poster.title} 포스터` : 'MUSE 포스터',
+        };
+      })
+      .filter((poster): poster is NonNullable<typeof poster> => poster !== null);
+  }, [postersQuery.data?.data]);
+
+  const posterItems = uploadedPosters.length > 0 ? uploadedPosters : performancePosters;
 
   useEffect(() => {
-    if (performancePosters.length <= 1) {
+    if (posterItems.length <= 1) {
       return;
     }
 
     const timer = window.setInterval(() => {
-      setActivePosterIndex((current) => (current + 1) % performancePosters.length);
+      setActivePosterIndex((current) => (current + 1) % posterItems.length);
     }, 3500);
 
     return () => {
       window.clearInterval(timer);
     };
-  }, []);
+  }, [posterItems.length]);
+
+  useEffect(() => {
+    setActivePosterIndex((current) => Math.min(current, Math.max(0, posterItems.length - 1)));
+  }, [posterItems.length]);
 
   useEffect(() => {
     const scroller = posterTabScrollerRef.current;
@@ -65,11 +100,11 @@ export function HomeDashboardPageV2() {
   }, [activePosterIndex]);
 
   const showPrevPoster = () => {
-    setActivePosterIndex((current) => (current - 1 + performancePosters.length) % performancePosters.length);
+    setActivePosterIndex((current) => (current - 1 + posterItems.length) % posterItems.length);
   };
 
   const showNextPoster = () => {
-    setActivePosterIndex((current) => (current + 1) % performancePosters.length);
+    setActivePosterIndex((current) => (current + 1) % posterItems.length);
   };
 
   const handlePosterTouchStart = (event: TouchEvent<HTMLButtonElement>) => {
@@ -126,7 +161,7 @@ export function HomeDashboardPageV2() {
     showNextPoster();
   };
 
-  const activePoster = performancePosters[activePosterIndex];
+  const activePoster = posterItems[activePosterIndex] ?? posterItems[0];
   const activeGalleryPhoto = galleryPhotos[activeGalleryIndex] ?? galleryPhotos[0];
   const activeVideoItem = videoItems[activeVideoIndex] ?? videoItems[0];
 
@@ -144,7 +179,7 @@ export function HomeDashboardPageV2() {
                 className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
               >
                 <div className="flex w-max min-w-full gap-2 pr-4 snap-x snap-mandatory md:pr-0">
-                {performancePosters.map((poster, index) => (
+                {posterItems.map((poster, index) => (
                   <button
                     key={poster.title}
                     ref={(element) => {
@@ -188,7 +223,7 @@ export function HomeDashboardPageV2() {
               className="relative z-[2] h-full w-full cursor-pointer text-left"
               aria-label={`${activePoster.title} 포스터 넘기기`}
             >
-              {performancePosters.map((poster, index) => (
+              {posterItems.map((poster, index) => (
                 <div
                   key={poster.title}
                   className={[
@@ -252,6 +287,8 @@ export function HomeDashboardPageV2() {
 
       <MuseCalendarSection />
 
+      <MemoryCalendarSection />
+
       <section className="space-y-5">
         <SectionTitle title="MUSE의 순간들" />
 
@@ -274,7 +311,7 @@ export function HomeDashboardPageV2() {
         </div>
 
         {activeGalleryPhoto ? (
-          <figure className="group w-full border border-[rgba(95,75,182,0.08)] bg-white p-3 shadow-[0_12px_28px_rgba(52,35,110,0.05)] rounded-tl-[28px] rounded-br-[28px] rounded-tr-none rounded-bl-none md:hidden">
+          <Link to="/photo-albums" className="group block w-full border border-[rgba(95,75,182,0.08)] bg-white p-3 shadow-[0_12px_28px_rgba(52,35,110,0.05)] rounded-tl-[28px] rounded-br-[28px] rounded-tr-none rounded-bl-none md:hidden">
             <div className="relative overflow-hidden rounded-tl-[22px] rounded-br-[22px] rounded-tr-none rounded-bl-none">
               <div className="h-[310px] overflow-hidden rounded-tl-[22px] rounded-br-[22px] rounded-tr-none rounded-bl-none">
                 <img
@@ -290,13 +327,14 @@ export function HomeDashboardPageV2() {
                 <p className="mt-1 text-xs leading-5 text-[#6f678b]">{activeGalleryPhoto.caption}</p>
               </figcaption>
             </div>
-          </figure>
+          </Link>
         ) : null}
 
         <div className="hidden gap-4 md:grid md:grid-cols-2 md:items-start md:justify-items-center md:gap-6">
           {galleryPhotos.map((photo, index) => (
-            <figure
+            <Link
               key={photo.title}
+              to="/photo-albums"
               className={[
                 'group w-full max-w-[340px] border border-[rgba(95,75,182,0.08)] bg-white p-3 shadow-[0_12px_28px_rgba(52,35,110,0.05)] rounded-tl-[28px] rounded-br-[28px] rounded-tr-none rounded-bl-none md:max-w-[360px] xl:max-w-[372px]',
                 index === 1 ? 'md:translate-y-10 md:shadow-[0_18px_36px_rgba(87,58,40,0.18)]' : '',
@@ -335,7 +373,7 @@ export function HomeDashboardPageV2() {
                   </p>
                 </figcaption>
               </div>
-            </figure>
+            </Link>
           ))}
         </div>
       </section>
@@ -437,7 +475,6 @@ export function HomeDashboardPageV2() {
         <section className="overflow-hidden rounded-[32px] border border-[rgba(95,75,182,0.08)] bg-[linear-gradient(135deg,#ffffff_0%,#f7f2ff_42%,#eef4ff_100%)] px-5 py-6 shadow-[0_12px_28px_rgba(52,35,110,0.04)] md:px-8 md:py-8">
           <div className="space-y-6">
             <div className="space-y-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#7b8350]">Join MUSE</p>
               <h2 className="text-[2rem] font-semibold tracking-tight text-[#241b42] md:text-[2.25rem]">
                 함께 연주하고 함께 무대를 만드는 밴드 동아리
               </h2>

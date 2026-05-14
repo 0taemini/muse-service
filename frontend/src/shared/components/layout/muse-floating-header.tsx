@@ -25,6 +25,13 @@ const privateMenuItems = [
 
 const adminMenuItem = { to: '/admin/users', label: '관리자' } as const;
 
+const adminUserSubItems = [
+  { to: '/admin/users', label: '가입 회원' },
+  { to: '/admin/all-users', label: '전체 명부' },
+] as const;
+
+const adminPosterItem = { to: '/admin/posters', label: '포스터 관리' } as const;
+
 const myPageSubItems = [
   { to: '/me?tab=profile', label: '개인정보 수정' },
   { to: '/me?tab=feedback', label: '피드백 확인' },
@@ -131,6 +138,93 @@ function FloatingNavDropdown({
   );
 }
 
+function FloatingAdminDropdown({
+  isOpen,
+  onToggle,
+  onOpen,
+  onClose,
+  onNavigate,
+}: {
+  isOpen: boolean;
+  onToggle: () => void;
+  onOpen: () => void;
+  onClose: () => void;
+  onNavigate: (to: string) => void;
+}) {
+  return (
+    <div className="relative -mb-5 pb-5" onMouseEnter={onOpen} onMouseLeave={onClose}>
+      <button
+        type="button"
+        onClick={onToggle}
+        className={cn(
+          'inline-flex items-center gap-2 rounded-full px-4 py-2 text-[0.9rem] font-medium transition',
+          isOpen
+            ? 'bg-[#2d2358] text-white'
+            : 'bg-white text-[#5a5180] hover:bg-[#faf7ff] hover:text-[#2d2b3f]',
+        )}
+      >
+        <span>관리자</span>
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 12 12"
+          className={cn('h-3 w-3 transition duration-200', isOpen ? 'rotate-180' : 'rotate-0')}
+          fill="none"
+        >
+          <path
+            d="M2.25 4.5L6 8.25L9.75 4.5"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
+      <div
+        className={cn(
+          'absolute left-1/2 top-[calc(100%-2px)] z-20 hidden w-[260px] -translate-x-1/2 pt-4 md:block',
+          isOpen ? 'pointer-events-auto' : 'pointer-events-none',
+        )}
+      >
+        <div
+          className={cn(
+            'rounded-[26px] border border-[rgba(95,75,182,0.14)] bg-white p-2 shadow-[0_16px_32px_rgba(41,28,93,0.08)] transition duration-200',
+            isOpen ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0',
+          )}
+        >
+          <div className="grid gap-1">
+            <p className="px-4 pb-1 pt-2 text-xs font-semibold text-[#8a82a8]">유저 관리</p>
+            {adminUserSubItems.map((item) => (
+              <button
+                key={item.to}
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onNavigate(item.to);
+                }}
+                className="rounded-[18px] px-4 py-3 text-sm font-medium text-[#5a5180] transition hover:bg-[#faf7ff] hover:text-[#2d2b3f]"
+              >
+                {item.label}
+              </button>
+            ))}
+            <div className="my-1 h-px bg-[rgba(95,75,182,0.1)]" />
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onNavigate(adminPosterItem.to);
+              }}
+              className="rounded-[18px] px-4 py-3 text-sm font-medium text-[#5a5180] transition hover:bg-[#faf7ff] hover:text-[#2d2b3f]"
+            >
+              {adminPosterItem.label}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function MuseFloatingHeader() {
   const headerRef = useRef<HTMLDivElement | null>(null);
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -225,6 +319,15 @@ export function MuseFloatingHeader() {
                       onOpen={() => setIsMyPageMenuOpen(true)}
                       onClose={() => setIsMyPageMenuOpen(false)}
                       items={myPageSubItems}
+                      onNavigate={navigateFromMenu}
+                    />
+                  ) : item.to === '/admin/users' ? (
+                    <FloatingAdminDropdown
+                      key={item.to}
+                      isOpen={isRecoveryMenuOpen}
+                      onToggle={() => setIsRecoveryMenuOpen((current) => !current)}
+                      onOpen={() => setIsRecoveryMenuOpen(true)}
+                      onClose={() => setIsRecoveryMenuOpen(false)}
                       onNavigate={navigateFromMenu}
                     />
                   ) : (
@@ -389,6 +492,66 @@ export function MuseFloatingHeader() {
                                 {subItem.label}
                               </button>
                             ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  }
+
+                  if (isAuthenticated && item.to === '/admin/users') {
+                    return (
+                      <div key={`mobile-${item.to}`} className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsMobileRecoveryMenuOpen((current) => !current)}
+                          className={cn(
+                             'flex w-full items-center justify-between rounded-full px-3.5 py-2.5 text-[0.82rem] font-medium transition',
+                             isMobileRecoveryMenuOpen
+                               ? 'bg-[#2d2358] text-white'
+                               : 'bg-white text-[#5a5180] hover:bg-[#faf7ff] hover:text-[#2d2b3f]',
+                          )}
+                        >
+                          <span>{item.label}</span>
+                          <svg
+                            aria-hidden="true"
+                            viewBox="0 0 12 12"
+                            className={cn(
+                              'h-3 w-3 transition duration-200',
+                              isMobileRecoveryMenuOpen ? 'rotate-180' : 'rotate-0',
+                            )}
+                            fill="none"
+                          >
+                            <path
+                              d="M2.25 4.5L6 8.25L9.75 4.5"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </button>
+
+                        {isMobileRecoveryMenuOpen ? (
+                           <div className="grid gap-1 rounded-[20px] border border-[rgba(95,75,182,0.1)] bg-white p-1.5 shadow-[0_14px_28px_rgba(52,35,110,0.07)]">
+                            <p className="px-3.5 pb-1 pt-2 text-[0.75rem] font-semibold text-[#8a82a8]">유저 관리</p>
+                            {adminUserSubItems.map((subItem) => (
+                              <button
+                                key={`mobile-sub-${subItem.to}`}
+                                type="button"
+                                onClick={() => navigateFromMenu(subItem.to)}
+                                 className="rounded-[14px] px-3.5 py-2.5 text-left text-[0.82rem] font-medium text-[#5a5180] transition hover:bg-[#faf7ff] hover:text-[#2d2b3f]"
+                              >
+                                {subItem.label}
+                              </button>
+                            ))}
+                            <div className="my-1 h-px bg-[rgba(95,75,182,0.1)]" />
+                            <button
+                              type="button"
+                              onClick={() => navigateFromMenu(adminPosterItem.to)}
+                               className="rounded-[14px] px-3.5 py-2.5 text-left text-[0.82rem] font-medium text-[#5a5180] transition hover:bg-[#faf7ff] hover:text-[#2d2b3f]"
+                            >
+                              {adminPosterItem.label}
+                            </button>
                           </div>
                         ) : null}
                       </div>

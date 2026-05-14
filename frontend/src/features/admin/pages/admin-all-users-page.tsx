@@ -266,7 +266,6 @@ export function AdminAllUsersPage() {
   return (
     <section className="mx-auto flex w-full max-w-[1120px] flex-col gap-5">
       <div>
-        <p className="section-kicker">Admin</p>
         <h1 className="text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl">전체 명부 관리</h1>
         <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-500">
           회원가입 가능 대상자인 ALLUSER 명부를 추가, 수정, 논리 삭제합니다.
@@ -282,6 +281,12 @@ export function AdminAllUsersPage() {
         </Link>
         <Link to="/admin/all-users" className="rounded-[8px] bg-[#241b42] px-4 py-2 text-sm font-semibold text-white">
           전체 명부
+        </Link>
+        <Link
+          to="/admin/posters"
+          className="rounded-[8px] border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+        >
+          포스터
         </Link>
       </div>
 

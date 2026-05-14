@@ -1316,7 +1316,6 @@ export function PerformanceGridPage() {
         {message ? <InlineNotice tone="error">{message}</InlineNotice> : null}
 
         <div className="space-y-3">
-          <p className="section-kicker">Performance Archive</p>
           <h1 className="text-3xl font-semibold text-slate-900 md:text-4xl">공연을 선택해 관리하세요</h1>
           <p className="max-w-2xl text-sm leading-7 text-slate-600 md:text-base">
             먼저 공연을 고른 뒤 곡 등록, 선곡 심사, 세션 배정, 합주방 생성까지 이어서 작업할 수 있습니다.
@@ -1357,10 +1356,7 @@ export function PerformanceGridPage() {
                   onClick={() => selectPerformance(performance.performanceId)}
                   className="block w-full text-left"
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className={cn('text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400', isAdmin && 'pl-8')}>
-                      Performance
-                    </p>
+                  <div className={cn('flex items-center justify-end gap-3', isAdmin && 'pl-8')}>
                     <StatusBadge tone={performanceStatusMeta[performance.status ?? 'ONGOING'].tone}>
                       {performanceStatusMeta[performance.status ?? 'ONGOING'].label}
                     </StatusBadge>
@@ -1658,7 +1654,6 @@ export function PerformanceGridPage() {
               <Card className="space-y-5">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="section-kicker">Song List</p>
                     <h3 className="mt-2 text-2xl font-semibold text-slate-900">등록된 곡</h3>
                   </div>
                   <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
@@ -1992,7 +1987,6 @@ export function PerformanceGridPage() {
             <div className="rounded-[32px] border border-[rgba(95,75,182,0.08)] bg-[#fcfbff] p-4 md:p-5">
               <Card className="space-y-5">
                 <div>
-                  <p className="section-kicker">Review Board</p>
                   <h3 className="mt-2 text-2xl font-semibold text-slate-900">선곡 심사</h3>
                   <p className="mt-2 text-sm leading-7 text-slate-600">
                     곡을 들으면서 상태만 바로 바꾸면 됩니다. 아직 세션 배정은 하지 않습니다.
@@ -2064,7 +2058,6 @@ export function PerformanceGridPage() {
               <Card className="space-y-5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                   <div>
-                    <p className="section-kicker">Assignment Table</p>
                     <h3 className="mt-2 text-2xl font-semibold text-slate-900">확정 곡 세션 배정</h3>
                     <p className="mt-2 text-sm leading-7 text-slate-600">
                       확정 곡만 표에 나타납니다. 담당자를 바꾸면 바로 반영됩니다.

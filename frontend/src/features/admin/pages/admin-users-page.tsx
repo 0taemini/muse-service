@@ -197,7 +197,6 @@ export function AdminUsersPage() {
     <section className="mx-auto flex w-full max-w-[1120px] flex-col gap-5">
       <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
         <div>
-          <p className="section-kicker">Admin</p>
           <h1 className="text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl">사용자 관리</h1>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-500">
             뮤즈 서비스에 가입된 사용자의 계정 상태와 관리자 권한을 변경합니다.
@@ -229,6 +228,12 @@ export function AdminUsersPage() {
           className="rounded-[8px] border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
         >
           전체 명부
+        </Link>
+        <Link
+          to="/admin/posters"
+          className="rounded-[8px] border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+        >
+          포스터
         </Link>
       </div>
 

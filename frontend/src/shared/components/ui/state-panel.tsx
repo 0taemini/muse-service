@@ -5,7 +5,7 @@ type Tone = 'default' | 'accent' | 'danger' | 'inverse';
 
 interface StatePanelProps {
   title: string;
-  description: string;
+  description?: string;
   action?: ReactNode;
   tone?: Tone;
   className?: string;
@@ -23,7 +23,7 @@ export function StatePanel({ title, description, action, tone = 'default', class
     <div className={cn('rounded-[24px] border px-5 py-8 text-center', toneClasses[tone], className)}>
       <div className="mx-auto max-w-md space-y-2">
         <h3 className={cn('text-lg font-semibold', tone === 'inverse' ? 'text-white' : 'text-slate-900')}>{title}</h3>
-        <p className="text-sm leading-7">{description}</p>
+        {description ? <p className="text-sm leading-7">{description}</p> : null}
       </div>
       {action ? <div className="mt-5 flex justify-center">{action}</div> : null}
     </div>
