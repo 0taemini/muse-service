@@ -309,8 +309,8 @@ export function MemoryCalendarSection() {
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]">
-        <div className="rounded-[8px] border border-[rgba(36,27,66,0.08)] bg-white p-3 shadow-[0_12px_28px_rgba(52,35,110,0.05)] md:p-5">
+      <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="rounded-[20px] border border-[rgba(36,27,66,0.08)] bg-white px-2.5 py-4 shadow-[0_12px_28px_rgba(52,35,110,0.05)] md:rounded-[28px] md:px-5 md:py-6">
           <div className="mb-4 flex items-center justify-between gap-2">
             <Button variant="ghost" size="sm" onClick={() => moveMonth(-1)}>
               이전
@@ -321,7 +321,7 @@ export function MemoryCalendarSection() {
             </Button>
           </div>
 
-          <div className="grid grid-cols-7 text-center text-xs font-bold text-slate-500">
+          <div className="grid grid-cols-7 text-center text-xs font-bold text-slate-500 md:text-sm">
             {weekdayLabels.map((label, index) => (
               <div key={label} className={cn('py-2', index === 0 ? 'text-rose-500' : '', index === 6 ? 'text-sky-500' : '')}>
                 {label}
@@ -329,13 +329,13 @@ export function MemoryCalendarSection() {
             ))}
           </div>
           <div
-            className="grid grid-cols-7 overflow-hidden rounded-[8px] border border-slate-100"
+            className="grid grid-cols-7 overflow-hidden rounded-[14px] border border-slate-100 [touch-action:pan-y] md:rounded-[18px]"
             onTouchStart={handleCalendarTouchStart}
             onTouchEnd={handleCalendarTouchEnd}
           >
             {days.map((day) => {
               const dayImages = memoriesByDate[day.dateKey] ?? [];
-              const thumbnail = dayImages[0] ? variantUrl(dayImages[0], ['THUMB_320', 'THUMB_480', 'DETAIL_1200']) : '';
+              const thumbnail = dayImages[0] ? variantUrl(dayImages[0], ['DETAIL_1200', 'THUMB_480', 'THUMB_320']) : '';
               const isSelected = selectedDate === day.dateKey;
 
               return (
@@ -344,13 +344,14 @@ export function MemoryCalendarSection() {
                   type="button"
                   onClick={() => selectDate(day.dateKey)}
                   className={cn(
-                    'relative aspect-square min-h-[56px] border-b border-r border-slate-100 bg-white text-left transition hover:bg-slate-50',
-                    isSelected ? 'ring-2 ring-inset ring-[#5a43ba]' : '',
+                    'relative aspect-square min-h-[48px] border-b border-r border-slate-100 bg-white text-left transition hover:bg-slate-50 sm:min-h-[56px]',
+                    isSelected ? 'z-10' : '',
                     !day.inCurrentMonth ? 'bg-slate-50/70 text-slate-300' : 'text-slate-700',
                   )}
                 >
-                  {thumbnail ? <img src={thumbnail} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" /> : null}
-                  <span className={cn('absolute left-1.5 top-1.5 z-10 inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-white/88 px-1 text-xs font-bold shadow-sm', !day.inCurrentMonth ? 'text-slate-300' : '')}>
+                  {thumbnail ? <img src={thumbnail} alt="" className="absolute inset-1 h-[calc(100%-8px)] w-[calc(100%-8px)] rounded-[4px] bg-slate-950 object-contain" loading="lazy" /> : null}
+                  {isSelected ? <span className="pointer-events-none absolute inset-0 z-20 shadow-[inset_0_0_0_2px_#5a43ba]" /> : null}
+                  <span className={cn('absolute left-1 top-1 z-30 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white/88 px-1 text-[11px] font-bold shadow-sm sm:left-1.5 sm:top-1.5 sm:h-6 sm:min-w-6 sm:text-xs', !day.inCurrentMonth ? 'text-slate-300' : '')}>
                     {day.day}
                   </span>
                   {dayImages.length > 1 ? (
@@ -364,20 +365,27 @@ export function MemoryCalendarSection() {
           </div>
         </div>
 
-        <aside className="rounded-[8px] border border-[rgba(95,75,182,0.1)] bg-white p-4 shadow-[0_12px_28px_rgba(52,35,110,0.05)] md:p-5">
+        <aside className="rounded-[20px] border border-[rgba(95,75,182,0.1)] bg-white p-4 shadow-[0_12px_28px_rgba(52,35,110,0.05)] md:rounded-[28px] md:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-semibold text-[#6f678b]">선택한 날짜</p>
               <h3 className="mt-1 text-xl font-semibold text-[#241b42]">{selectedDateLabel(selectedDate)}</h3>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setIsDetailOpen(true)}>
-              보기
-            </Button>
+            <div className="flex items-center gap-2">
+              {isAuthenticated ? (
+                <Button variant="ghost" size="sm" onClick={() => setIsDetailOpen(true)}>
+                  추가
+                </Button>
+              ) : null}
+              <Button variant="ghost" size="sm" onClick={() => setIsDetailOpen(true)}>
+                보기
+              </Button>
+            </div>
           </div>
 
           <div className="mt-4 grid grid-cols-3 gap-2">
             {memoriesQuery.isLoading ? (
-              Array.from({ length: 6 }).map((_, index) => <div key={index} className="aspect-square animate-pulse rounded-[8px] bg-slate-100" />)
+              Array.from({ length: 6 }).map((_, index) => <div key={index} className="aspect-square animate-pulse rounded-[18px] bg-slate-100" />)
             ) : selectedMemories.length ? (
               selectedMemories.slice(0, 6).map((image) => {
                 const imageUrl = variantUrl(image, ['THUMB_320', 'THUMB_480']);
@@ -386,7 +394,7 @@ export function MemoryCalendarSection() {
                   <button
                     key={image.imageId}
                     type="button"
-                    className="overflow-hidden rounded-[8px] md:cursor-pointer"
+                    className="overflow-hidden rounded-[18px] md:cursor-pointer"
                     onClick={() => openPreviewImage(image)}
                   >
                     {imageUrl ? (
@@ -421,7 +429,7 @@ export function MemoryCalendarSection() {
                   <button
                     key={image.imageId}
                     type="button"
-                    className="overflow-hidden rounded-[8px] border border-slate-200 bg-white text-left md:cursor-pointer"
+                    className="overflow-hidden rounded-[18px] border border-slate-200 bg-white text-left md:cursor-pointer"
                     aria-disabled={!canOpenImageDetail()}
                     onClick={() => openImageDetail(image, selectedMemories)}
                   >
@@ -445,7 +453,7 @@ export function MemoryCalendarSection() {
           )}
 
           {isAuthenticated ? (
-            <div className="rounded-[8px] border border-slate-200 bg-slate-50 p-4">
+            <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
               <h4 className="font-semibold text-slate-900">추억 남기기</h4>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 <FormField label="제목">
