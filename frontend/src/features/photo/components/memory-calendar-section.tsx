@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type TouchEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toApiMessage } from '@features/auth/api/auth-api';
 import { useAuthStore } from '@features/auth/store/auth-store';
@@ -18,6 +18,33 @@ type CalendarDay = {
 };
 
 const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
+
+const demoMemorySources = [
+  {
+    title: '정기공연 리허설',
+    description: '무대 동선과 세팅을 맞춰보던 날의 기록입니다.',
+    day: 5,
+    url: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=900&q=80',
+  },
+  {
+    title: '합주실에서',
+    description: '곡 순서를 정리하고 파트별 밸런스를 맞추던 합주 사진입니다.',
+    day: 12,
+    url: 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=900&q=80',
+  },
+  {
+    title: '공연 전 단체 사진',
+    description: '무대에 올라가기 전, 모두가 모였던 순간입니다.',
+    day: 12,
+    url: 'https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=900&q=80',
+  },
+  {
+    title: '뒤풀이 기록',
+    description: '공연을 마치고 서로의 수고를 나누던 시간입니다.',
+    day: 23,
+    url: 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?auto=format&fit=crop&w=900&q=80',
+  },
+];
 
 function toDateInput(date: Date) {
   const year = date.getFullYear();
@@ -58,6 +85,64 @@ function selectedDateLabel(dateKey: string) {
   }).format(new Date(`${dateKey}T00:00:00`));
 }
 
+function canOpenImageDetail() {
+  return typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches;
+}
+
+function createDemoMemoryImages(monthDate: Date): PhotoImage[] {
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const now = new Date().toISOString();
+
+  return demoMemorySources.map((source, index) => {
+    const date = new Date(year, month, Math.min(source.day, lastDay));
+    const dateKey = toDateInput(date);
+
+    return {
+      imageId: -(index + 1),
+      imageType: 'MEMORY',
+      albumId: null,
+      title: source.title,
+      description: source.description,
+      imageDate: dateKey,
+      displayOrder: index + 1,
+      status: 'READY',
+      originalKey: `demo-memory-${index + 1}`,
+      createdByUserId: 0,
+      createdByNickname: 'Muse',
+      createdAt: now,
+      updatedAt: now,
+      variants: [
+        {
+          variantType: 'THUMB_320',
+          s3Key: `demo-memory-${index + 1}-thumb`,
+          url: source.url,
+          width: 900,
+          height: 600,
+          contentType: 'image/jpeg',
+        },
+        {
+          variantType: 'THUMB_480',
+          s3Key: `demo-memory-${index + 1}-preview`,
+          url: source.url,
+          width: 900,
+          height: 600,
+          contentType: 'image/jpeg',
+        },
+        {
+          variantType: 'DETAIL_1200',
+          s3Key: `demo-memory-${index + 1}-detail`,
+          url: source.url,
+          width: 1200,
+          height: 800,
+          contentType: 'image/jpeg',
+        },
+      ],
+    };
+  });
+}
+
 export function MemoryCalendarSection() {
   const queryClient = useQueryClient();
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -66,9 +151,13 @@ export function MemoryCalendarSection() {
   const [selectedDate, setSelectedDate] = useState(() => toDateInput(new Date()));
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [detailImage, setDetailImage] = useState<PhotoImage | null>(null);
+  const [detailImages, setDetailImages] = useState<PhotoImage[]>([]);
+  const [detailImageIndex, setDetailImageIndex] = useState(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const calendarSwipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const suppressDateSelectRef = useRef(false);
 
   const days = useMemo(() => buildCalendarDays(monthDate), [monthDate]);
   const range = useMemo(
@@ -85,18 +174,103 @@ export function MemoryCalendarSection() {
   });
 
   const memories = memoriesQuery.data?.data ?? [];
+  const demoMemories = useMemo(() => createDemoMemoryImages(monthDate), [monthDate]);
+  const visibleMemories = memories.length || memoriesQuery.isLoading || memoriesQuery.isError ? memories : demoMemories;
   const memoriesByDate = useMemo(
     () =>
-      memories.reduce<Record<string, PhotoImage[]>>((groups, image) => {
+      visibleMemories.reduce<Record<string, PhotoImage[]>>((groups, image) => {
         if (!image.imageDate) {
           return groups;
         }
         groups[image.imageDate] = [...(groups[image.imageDate] ?? []), image];
         return groups;
       }, {}),
-    [memories],
+    [visibleMemories],
   );
   const selectedMemories = memoriesByDate[selectedDate] ?? [];
+
+  const openImageDetail = (image: PhotoImage, images: PhotoImage[] = selectedMemories) => {
+    if (!canOpenImageDetail()) {
+      return;
+    }
+
+    const galleryImages = images.length ? images : [image];
+    const imageIndex = Math.max(
+      0,
+      galleryImages.findIndex((item) => item.imageId === image.imageId),
+    );
+
+    setDetailImages(galleryImages);
+    setDetailImageIndex(imageIndex);
+    setDetailImage(galleryImages[imageIndex]);
+  };
+
+  const openPreviewImage = (image: PhotoImage) => {
+    if (canOpenImageDetail()) {
+      openImageDetail(image, selectedMemories);
+      return;
+    }
+
+    setIsDetailOpen(true);
+  };
+
+  const closeImageDetail = () => {
+    setDetailImage(null);
+    setDetailImages([]);
+    setDetailImageIndex(0);
+  };
+
+  const moveDetailImage = (amount: number) => {
+    if (!detailImages.length) {
+      return;
+    }
+
+    const nextIndex = (detailImageIndex + amount + detailImages.length) % detailImages.length;
+    setDetailImageIndex(nextIndex);
+    setDetailImage(detailImages[nextIndex]);
+  };
+
+  const moveMonth = (amount: number) => {
+    setMonthDate((date) => new Date(date.getFullYear(), date.getMonth() + amount, 1));
+  };
+
+  const selectDate = (dateKey: string) => {
+    if (suppressDateSelectRef.current) {
+      suppressDateSelectRef.current = false;
+      return;
+    }
+
+    setSelectedDate(dateKey);
+  };
+
+  const handleCalendarTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0];
+    calendarSwipeStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+    };
+  };
+
+  const handleCalendarTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
+    const start = calendarSwipeStartRef.current;
+    const touch = event.changedTouches[0];
+    calendarSwipeStartRef.current = null;
+
+    if (!start) {
+      return;
+    }
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    const isHorizontalSwipe = Math.abs(deltaX) > 48 && Math.abs(deltaX) > Math.abs(deltaY) * 1.4;
+
+    if (!isHorizontalSwipe) {
+      return;
+    }
+
+    suppressDateSelectRef.current = true;
+    moveMonth(deltaX < 0 ? 1 : -1);
+  };
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
@@ -132,21 +306,21 @@ export function MemoryCalendarSection() {
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <h2 className="text-[2rem] font-semibold tracking-tight text-[#241b42] md:text-[2.35rem]">추억 캘린더</h2>
-          <p className="mt-2 text-sm leading-6 text-[#6f678b]">합주가 끝난 날의 사진을 날짜별로 모아봅니다.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setMonthDate((date) => new Date(date.getFullYear(), date.getMonth() - 1, 1))}>
-            이전
-          </Button>
-          <span className="min-w-28 text-center text-sm font-semibold text-[#241b42]">{monthLabel(monthDate)}</span>
-          <Button variant="ghost" size="sm" onClick={() => setMonthDate((date) => new Date(date.getFullYear(), date.getMonth() + 1, 1))}>
-            다음
-          </Button>
         </div>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]">
         <div className="rounded-[8px] border border-[rgba(36,27,66,0.08)] bg-white p-3 shadow-[0_12px_28px_rgba(52,35,110,0.05)] md:p-5">
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <Button variant="ghost" size="sm" onClick={() => moveMonth(-1)}>
+              이전
+            </Button>
+            <p className="text-lg font-semibold text-[#241b42]">{monthLabel(monthDate)}</p>
+            <Button variant="ghost" size="sm" onClick={() => moveMonth(1)}>
+              다음
+            </Button>
+          </div>
+
           <div className="grid grid-cols-7 text-center text-xs font-bold text-slate-500">
             {weekdayLabels.map((label, index) => (
               <div key={label} className={cn('py-2', index === 0 ? 'text-rose-500' : '', index === 6 ? 'text-sky-500' : '')}>
@@ -154,7 +328,11 @@ export function MemoryCalendarSection() {
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-7 overflow-hidden rounded-[8px] border border-slate-100">
+          <div
+            className="grid grid-cols-7 overflow-hidden rounded-[8px] border border-slate-100"
+            onTouchStart={handleCalendarTouchStart}
+            onTouchEnd={handleCalendarTouchEnd}
+          >
             {days.map((day) => {
               const dayImages = memoriesByDate[day.dateKey] ?? [];
               const thumbnail = dayImages[0] ? variantUrl(dayImages[0], ['THUMB_320', 'THUMB_480', 'DETAIL_1200']) : '';
@@ -164,10 +342,7 @@ export function MemoryCalendarSection() {
                 <button
                   key={day.dateKey}
                   type="button"
-                  onClick={() => {
-                    setSelectedDate(day.dateKey);
-                    setIsDetailOpen(true);
-                  }}
+                  onClick={() => selectDate(day.dateKey)}
                   className={cn(
                     'relative aspect-square min-h-[56px] border-b border-r border-slate-100 bg-white text-left transition hover:bg-slate-50',
                     isSelected ? 'ring-2 ring-inset ring-[#5a43ba]' : '',
@@ -179,7 +354,7 @@ export function MemoryCalendarSection() {
                     {day.day}
                   </span>
                   {dayImages.length > 1 ? (
-                    <span className="absolute bottom-1.5 right-1.5 z-10 rounded-full bg-slate-950/70 px-2 py-1 text-[10px] font-bold text-white">
+                    <span className="absolute bottom-1 right-1 z-10 rounded-full bg-slate-950/70 px-1.5 py-0.5 text-[8px] font-bold leading-none text-white sm:bottom-1.5 sm:right-1.5 sm:px-2 sm:py-1 sm:text-[10px] sm:leading-none">
                       +{dayImages.length - 1}
                     </span>
                   ) : null}
@@ -208,7 +383,12 @@ export function MemoryCalendarSection() {
                 const imageUrl = variantUrl(image, ['THUMB_320', 'THUMB_480']);
 
                 return (
-                  <button key={image.imageId} type="button" className="overflow-hidden rounded-[8px]" onClick={() => setDetailImage(image)}>
+                  <button
+                    key={image.imageId}
+                    type="button"
+                    className="overflow-hidden rounded-[8px] md:cursor-pointer"
+                    onClick={() => openPreviewImage(image)}
+                  >
                     {imageUrl ? (
                       <img src={imageUrl} alt={image.title ?? '추억 사진'} className="aspect-square w-full object-cover" loading="lazy" />
                     ) : (
@@ -238,7 +418,13 @@ export function MemoryCalendarSection() {
                 const imageUrl = variantUrl(image, ['THUMB_480', 'THUMB_320']);
 
                 return (
-                  <button key={image.imageId} type="button" className="overflow-hidden rounded-[8px] border border-slate-200 bg-white text-left" onClick={() => setDetailImage(image)}>
+                  <button
+                    key={image.imageId}
+                    type="button"
+                    className="overflow-hidden rounded-[8px] border border-slate-200 bg-white text-left md:cursor-pointer"
+                    aria-disabled={!canOpenImageDetail()}
+                    onClick={() => openImageDetail(image, selectedMemories)}
+                  >
                     {imageUrl ? (
                       <img src={imageUrl} alt={image.title ?? '추억 사진'} className="aspect-[4/3] w-full object-cover" />
                     ) : (
@@ -289,17 +475,68 @@ export function MemoryCalendarSection() {
         </div>
       </Modal>
 
-      <Modal open={detailImage !== null} title={detailImage?.title || '추억 사진'} onClose={() => setDetailImage(null)} size="xl">
+      <Modal open={detailImage !== null} title={detailImage?.title || '추억 사진'} onClose={closeImageDetail} size="xl">
         {detailImage ? (
           <figure>
-            {variantUrl(detailImage, ['DETAIL_1200', 'THUMB_480', 'THUMB_320']) ? (
-              <img src={variantUrl(detailImage, ['DETAIL_1200', 'THUMB_480', 'THUMB_320'])} alt={detailImage.title ?? '추억 사진'} className="max-h-[70vh] w-full rounded-[8px] object-contain" />
-            ) : (
-              <div className="flex h-72 w-full items-center justify-center rounded-[8px] bg-slate-100 text-sm font-semibold text-slate-400">
-                사진을 준비하고 있습니다.
-              </div>
-            )}
+            <div className="relative">
+              {variantUrl(detailImage, ['DETAIL_1200', 'THUMB_480', 'THUMB_320']) ? (
+                <img src={variantUrl(detailImage, ['DETAIL_1200', 'THUMB_480', 'THUMB_320'])} alt={detailImage.title ?? '추억 사진'} className="max-h-[70vh] w-full rounded-[8px] object-contain" />
+              ) : (
+                <div className="flex h-72 w-full items-center justify-center rounded-[8px] bg-slate-100 text-sm font-semibold text-slate-400">
+                  사진을 준비하고 있습니다.
+                </div>
+              )}
+              {detailImages.length > 1 ? (
+                <>
+                  <button
+                    type="button"
+                    className="absolute left-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-slate-950/65 text-xl font-bold text-white shadow-lg transition hover:bg-slate-950/80"
+                    onClick={() => moveDetailImage(-1)}
+                    aria-label="이전 사진"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-slate-950/65 text-xl font-bold text-white shadow-lg transition hover:bg-slate-950/80"
+                    onClick={() => moveDetailImage(1)}
+                    aria-label="다음 사진"
+                  >
+                    ›
+                  </button>
+                </>
+              ) : null}
+            </div>
+            {detailImages.length > 1 ? (
+              <p className="mt-3 text-center text-xs font-semibold text-slate-500">
+                {detailImageIndex + 1} / {detailImages.length}
+              </p>
+            ) : null}
             {detailImage.description ? <figcaption className="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-600">{detailImage.description}</figcaption> : null}
+            {detailImages.length > 1 ? (
+              <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+                {detailImages.map((image, index) => {
+                  const imageUrl = variantUrl(image, ['THUMB_320', 'THUMB_480']);
+
+                  return (
+                    <button
+                      key={image.imageId}
+                      type="button"
+                      className={cn(
+                        'h-16 w-16 shrink-0 overflow-hidden rounded-[8px] border bg-slate-100 transition',
+                        index === detailImageIndex ? 'border-[#5a43ba] ring-2 ring-[#5a43ba]/25' : 'border-slate-200 opacity-70 hover:opacity-100',
+                      )}
+                      onClick={() => {
+                        setDetailImageIndex(index);
+                        setDetailImage(image);
+                      }}
+                    >
+                      {imageUrl ? <img src={imageUrl} alt={image.title ?? '추억 사진'} className="h-full w-full object-cover" /> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
           </figure>
         ) : null}
       </Modal>
