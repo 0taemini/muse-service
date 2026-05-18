@@ -292,6 +292,7 @@ export function PerformanceGridPage() {
   const chatTransportRef = useRef<ChatTransport | null>(null);
   const currentUserIdRef = useRef<number | null>(null);
   const typingExpiryTimersRef = useRef<Record<number, number>>({});
+  const mobileChatRoomsModalHistoryRef = useRef(false);
 
   const performancesQuery = useQuery({
     queryKey: ['performances'],
@@ -579,6 +580,64 @@ export function PerformanceGridPage() {
       status: nextPerformance.status ?? 'ONGOING',
     });
     setIsUpdatePerformanceModalOpen(true);
+  };
+
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (!isMobileChatRoomsModalOpen || !mobileChatRoomsModalHistoryRef.current) {
+        return;
+      }
+
+      if (!event.state?.mobileChatRoomsOpen) {
+        mobileChatRoomsModalHistoryRef.current = false;
+        setIsMobileChatRoomsModalOpen(false);
+        setMobileChatRoomSearch('');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isMobileChatRoomsModalOpen]);
+
+  const openMobileChatRoomsModal = () => {
+    if (!isMobileChatRoomsModalOpen) {
+      window.history.pushState(
+        {
+          ...window.history.state,
+          mobileChatRoomsOpen: true,
+        },
+        '',
+      );
+      mobileChatRoomsModalHistoryRef.current = true;
+    }
+
+    setMobileChatRoomSearch('');
+    setIsMobileChatRoomsModalOpen(true);
+  };
+
+  const dismissMobileChatRoomsModal = () => {
+    mobileChatRoomsModalHistoryRef.current = false;
+    setIsMobileChatRoomsModalOpen(false);
+    setMobileChatRoomSearch('');
+
+    if (window.history.state?.mobileChatRoomsOpen) {
+      window.history.replaceState(
+        {
+          ...window.history.state,
+          mobileChatRoomsOpen: false,
+        },
+        '',
+      );
+    }
+  };
+
+  const closeMobileChatRoomsModal = () => {
+    if (mobileChatRoomsModalHistoryRef.current && window.history.state?.mobileChatRoomsOpen) {
+      window.history.back();
+      return;
+    }
+
+    dismissMobileChatRoomsModal();
   };
 
   useEffect(() => {
@@ -1263,8 +1322,7 @@ export function PerformanceGridPage() {
   const openChatRoom = (chatRoomId: number) => {
     const currentChatRoomId = new URLSearchParams(location.search).get(chatRoomSearchParam);
     setSelectedChatRoomId(chatRoomId);
-    setIsMobileChatRoomsModalOpen(false);
-    setMobileChatRoomSearch('');
+    dismissMobileChatRoomsModal();
     setChatInput('');
     setChatConnectionMessage('');
     setIsChatActionMenuOpen(false);
@@ -1624,8 +1682,7 @@ export function PerformanceGridPage() {
               type="button"
               className="mb-2 min-h-11 w-full rounded-xl"
               onClick={() => {
-                setMobileChatRoomSearch('');
-                setIsMobileChatRoomsModalOpen(true);
+                openMobileChatRoomsModal();
               }}
             >
               채팅방 바로가기
@@ -2344,10 +2401,7 @@ export function PerformanceGridPage() {
         open={isMobileChatRoomsModalOpen}
         title="채팅방"
         description="확정 곡의 합주방에 바로 들어갈 수 있습니다."
-        onClose={() => {
-          setIsMobileChatRoomsModalOpen(false);
-          setMobileChatRoomSearch('');
-        }}
+        onClose={closeMobileChatRoomsModal}
       >
         {chatRoomsQuery.isLoading ? (
           <SkeletonList count={4} />

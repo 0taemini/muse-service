@@ -8,6 +8,7 @@ import { Button } from '@shared/components/ui/button';
 import { cn } from '@shared/lib/cn';
 
 const publicMenuItems = [
+  { to: '/photo-albums', label: '뮤즈 앨범' },
   { to: '/login', label: '로그인' },
   { to: '/signup', label: '회원가입' },
   { to: '/recovery', label: '계정 찾기' },
@@ -19,6 +20,7 @@ const recoverySubItems = [
 ] as const;
 
 const privateMenuItems = [
+  { to: '/photo-albums', label: '뮤즈 앨범' },
   { to: '/performances', label: '공연 관리' },
   { to: '/me', label: '마이페이지' },
 ] as const;

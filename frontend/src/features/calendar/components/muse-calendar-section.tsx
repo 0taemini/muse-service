@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type CSSProperties, type TouchEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type TouchEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toApiMessage } from '@features/auth/api/auth-api';
 import { useAuthStore } from '@features/auth/store/auth-store';
@@ -364,6 +364,7 @@ export function MuseCalendarSection() {
   const [form, setForm] = useState<CalendarForm>(emptyForm);
   const calendarSwipeStartRef = useRef<{ x: number; y: number } | null>(null);
   const suppressDateSelectRef = useRef(false);
+  const dayEventsModalHistoryRef = useRef(false);
 
   const calendarDays = useMemo(() => buildCalendarDays(monthDate), [monthDate]);
   const calendarWeeks = useMemo(() => chunkWeeks(calendarDays), [calendarDays]);
@@ -379,6 +380,10 @@ export function MuseCalendarSection() {
     queryKey: ['calendar-events', calendarRange.startDate, calendarRange.endDate],
     queryFn: () => calendarApi.getEvents(calendarRange.startDate, calendarRange.endDate),
   });
+  const todayEventsQuery = useQuery({
+    queryKey: ['calendar-events', todayDate, todayDate],
+    queryFn: () => calendarApi.getEvents(todayDate, todayDate),
+  });
 
   const events = eventsQuery.data?.data ?? [];
   const eventsByDate = useMemo(
@@ -390,10 +395,26 @@ export function MuseCalendarSection() {
     [calendarDays, events],
   );
   const selectedEvents = eventsByDate[selectedDate] ?? [];
-  const todayEvents = eventsByDate[todayDate] ?? [];
+  const todayEvents = todayEventsQuery.data?.data ?? [];
   const formStartValue = form.allDay ? toAllDayStart(form.startAt) : form.startAt;
   const formEndValue = form.allDay ? toAllDayEnd(form.endAt) : form.endAt;
   const isFormValid = Boolean(form.title.trim() && form.startAt && form.endAt && formEndValue > formStartValue);
+
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (!isDayEventsModalOpen || !dayEventsModalHistoryRef.current) {
+        return;
+      }
+
+      if (!event.state?.museCalendarDayEventsOpen) {
+        dayEventsModalHistoryRef.current = false;
+        setIsDayEventsModalOpen(false);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isDayEventsModalOpen]);
 
   const invalidateEvents = async () => {
     await queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
@@ -405,10 +426,49 @@ export function MuseCalendarSection() {
     setForm(emptyForm);
   };
 
+  const openDayEventsModal = () => {
+    if (!isDayEventsModalOpen) {
+      window.history.pushState(
+        {
+          ...window.history.state,
+          museCalendarDayEventsOpen: true,
+        },
+        '',
+      );
+      dayEventsModalHistoryRef.current = true;
+    }
+
+    setIsDayEventsModalOpen(true);
+  };
+
+  const dismissDayEventsModal = () => {
+    dayEventsModalHistoryRef.current = false;
+    dismissDayEventsModal();
+
+    if (window.history.state?.museCalendarDayEventsOpen) {
+      window.history.replaceState(
+        {
+          ...window.history.state,
+          museCalendarDayEventsOpen: false,
+        },
+        '',
+      );
+    }
+  };
+
+  const closeDayEventsModal = () => {
+    if (dayEventsModalHistoryRef.current && window.history.state?.museCalendarDayEventsOpen) {
+      window.history.back();
+      return;
+    }
+
+    dismissDayEventsModal();
+  };
+
   const openCreateForm = () => {
     const defaultStartAt = `${selectedDate}T19:00`;
     const defaultEndAt = `${selectedDate}T21:00`;
-    setIsDayEventsModalOpen(false);
+    dismissDayEventsModal();
     setEditingEvent(null);
     setForm({ ...emptyForm, startAt: defaultStartAt, endAt: defaultEndAt, allDay: false });
     setIsFormOpen(true);
@@ -454,7 +514,7 @@ export function MuseCalendarSection() {
     setSelectedDate(dateKey);
 
     if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
-      setIsDayEventsModalOpen(true);
+      openDayEventsModal();
     }
   };
 
@@ -541,13 +601,13 @@ export function MuseCalendarSection() {
         </div>
 
         <div className="mt-4 space-y-3">
-          {eventsQuery.isLoading ? (
+          {todayEventsQuery.isLoading ? (
             <div className="space-y-2">
               <div className="h-20 animate-pulse rounded-[18px] bg-slate-100" />
               <div className="h-20 animate-pulse rounded-[18px] bg-slate-100" />
             </div>
-          ) : eventsQuery.isError ? (
-            <StatePanel tone="danger" title="일정을 불러오지 못했습니다." description={toApiMessage(eventsQuery.error)} />
+          ) : todayEventsQuery.isError ? (
+            <StatePanel tone="danger" title="일정을 불러오지 못했습니다." description={toApiMessage(todayEventsQuery.error)} />
           ) : todayEvents.length ? (
             todayEvents.map((event) => {
               const meta = eventTypeMeta[event.eventType];
@@ -739,7 +799,7 @@ export function MuseCalendarSection() {
                           size="sm"
                           className="text-rose-600 hover:text-rose-700"
                           onClick={() => {
-                            setIsDayEventsModalOpen(false);
+                            dismissDayEventsModal();
                             setDeletingEvent(event);
                           }}
                         >
@@ -764,7 +824,7 @@ export function MuseCalendarSection() {
           day: 'numeric',
           weekday: 'long',
         }).format(new Date(`${selectedDate}T00:00:00`))}
-        onClose={() => setIsDayEventsModalOpen(false)}
+        onClose={closeDayEventsModal}
         headerActions={
           isAuthenticated ? (
             <Button variant="ghost" size="sm" onClick={openCreateForm}>
@@ -812,7 +872,7 @@ export function MuseCalendarSection() {
                         size="sm"
                         className="text-rose-600 hover:text-rose-700"
                         onClick={() => {
-                          setIsDayEventsModalOpen(false);
+                          dismissDayEventsModal();
                           setDeletingEvent(event);
                         }}
                       >

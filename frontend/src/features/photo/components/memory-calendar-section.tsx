@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type TouchEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type TouchEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toApiMessage } from '@features/auth/api/auth-api';
 import { useAuthStore } from '@features/auth/store/auth-store';
@@ -77,6 +77,7 @@ export function MemoryCalendarSection() {
   const [description, setDescription] = useState('');
   const calendarSwipeStartRef = useRef<{ x: number; y: number } | null>(null);
   const suppressDateSelectRef = useRef(false);
+  const detailModalHistoryRef = useRef(false);
 
   const days = useMemo(() => buildCalendarDays(monthDate), [monthDate]);
   const range = useMemo(
@@ -104,7 +105,49 @@ export function MemoryCalendarSection() {
       }, {}),
     [memories],
   );
+  const todayDate = toDateInput(new Date());
   const selectedMemories = memoriesByDate[selectedDate] ?? [];
+
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (!isDetailOpen || !detailModalHistoryRef.current) {
+        return;
+      }
+
+      if (!event.state?.memoryCalendarDetailOpen) {
+        detailModalHistoryRef.current = false;
+        setIsDetailOpen(false);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isDetailOpen]);
+
+  const openDetailModal = () => {
+    if (!isDetailOpen) {
+      window.history.pushState(
+        {
+          ...window.history.state,
+          memoryCalendarDetailOpen: true,
+        },
+        '',
+      );
+      detailModalHistoryRef.current = true;
+    }
+
+    setIsDetailOpen(true);
+  };
+
+  const closeDetailModal = () => {
+    if (detailModalHistoryRef.current && window.history.state?.memoryCalendarDetailOpen) {
+      window.history.back();
+      return;
+    }
+
+    detailModalHistoryRef.current = false;
+    setIsDetailOpen(false);
+  };
 
   const openImageDetail = (image: PhotoImage, images: PhotoImage[] = selectedMemories) => {
     if (!canOpenImageDetail()) {
@@ -128,7 +171,7 @@ export function MemoryCalendarSection() {
       return;
     }
 
-    setIsDetailOpen(true);
+    openDetailModal();
   };
 
   const closeImageDetail = () => {
@@ -253,6 +296,7 @@ export function MemoryCalendarSection() {
             {days.map((day) => {
               const dayImages = memoriesByDate[day.dateKey] ?? [];
               const thumbnail = dayImages[0] ? variantUrl(dayImages[0], ['THUMB_320', 'THUMB_480', 'DETAIL_1200']) : '';
+              const isToday = day.dateKey === todayDate;
               return (
                 <button
                   key={day.dateKey}
@@ -267,8 +311,8 @@ export function MemoryCalendarSection() {
                   <span
                     className={cn(
                       'absolute left-1 top-1 z-30 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold shadow-sm sm:left-1.5 sm:top-1.5 sm:h-6 sm:min-w-6 sm:text-xs',
-                      'bg-white/88',
-                      !day.inCurrentMonth ? 'text-slate-300' : '',
+                      isToday ? 'bg-rose-500 text-white' : 'bg-white/88',
+                      !isToday && !day.inCurrentMonth ? 'text-slate-300' : '',
                     )}
                   >
                     {day.day}
@@ -292,11 +336,11 @@ export function MemoryCalendarSection() {
             </div>
             <div className="flex items-center gap-2">
               {isAuthenticated ? (
-                <Button variant="ghost" size="sm" onClick={() => setIsDetailOpen(true)}>
+                <Button variant="ghost" size="sm" onClick={openDetailModal}>
                   추가
                 </Button>
               ) : null}
-              <Button variant="ghost" size="sm" onClick={() => setIsDetailOpen(true)}>
+              <Button variant="ghost" size="sm" onClick={openDetailModal}>
                 보기
               </Button>
             </div>
@@ -335,7 +379,7 @@ export function MemoryCalendarSection() {
         </aside>
       </div>
 
-      <Modal open={isDetailOpen} title={selectedDateLabel(selectedDate)} onClose={() => setIsDetailOpen(false)} size="lg">
+      <Modal open={isDetailOpen} title={selectedDateLabel(selectedDate)} onClose={closeDetailModal} size="lg">
         <div className="space-y-5">
           {memoriesQuery.isError ? (
             <StatePanel tone="danger" title="사진을 불러오지 못했습니다." description={toApiMessage(memoriesQuery.error)} />
