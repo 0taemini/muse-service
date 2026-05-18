@@ -104,6 +104,7 @@ export function MemoryCalendarSection() {
       }, {}),
     [memories],
   );
+  const todayDate = toDateInput(new Date());
   const selectedMemories = memoriesByDate[selectedDate] ?? [];
 
   const openImageDetail = (image: PhotoImage, images: PhotoImage[] = selectedMemories) => {
@@ -253,6 +254,7 @@ export function MemoryCalendarSection() {
             {days.map((day) => {
               const dayImages = memoriesByDate[day.dateKey] ?? [];
               const thumbnail = dayImages[0] ? variantUrl(dayImages[0], ['THUMB_320', 'THUMB_480', 'DETAIL_1200']) : '';
+              const isToday = day.dateKey === todayDate;
               return (
                 <button
                   key={day.dateKey}
@@ -267,8 +269,8 @@ export function MemoryCalendarSection() {
                   <span
                     className={cn(
                       'absolute left-1 top-1 z-30 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold shadow-sm sm:left-1.5 sm:top-1.5 sm:h-6 sm:min-w-6 sm:text-xs',
-                      'bg-white/88',
-                      !day.inCurrentMonth ? 'text-slate-300' : '',
+                      isToday ? 'bg-rose-500 text-white' : 'bg-white/88',
+                      !isToday && !day.inCurrentMonth ? 'text-slate-300' : '',
                     )}
                   >
                     {day.day}
