@@ -41,6 +41,12 @@ const PerformanceGridPage = lazy(() =>
   })),
 );
 
+const PhotoAlbumsPage = lazy(() =>
+  import('@features/photo/pages/photo-albums-page').then((module) => ({
+    default: module.PhotoAlbumsPage,
+  })),
+);
+
 const AdminUsersPage = lazy(() =>
   import('@features/admin/pages/admin-users-page').then((module) => ({
     default: module.AdminUsersPage,
@@ -50,6 +56,12 @@ const AdminUsersPage = lazy(() =>
 const AdminAllUsersPage = lazy(() =>
   import('@features/admin/pages/admin-all-users-page').then((module) => ({
     default: module.AdminAllUsersPage,
+  })),
+);
+
+const AdminPostersPage = lazy(() =>
+  import('@features/admin/pages/admin-posters-page').then((module) => ({
+    default: module.AdminPostersPage,
   })),
 );
 
@@ -64,6 +76,7 @@ export const router = createBrowserRouter([
     errorElement: <RouteErrorPage />,
     children: [
       { index: true, element: withSuspense(<HomeDashboardPageV2 />) },
+      { path: 'photo-albums', element: withSuspense(<PhotoAlbumsPage />) },
       {
         element: <PublicOnlyRoute />,
         children: [
@@ -83,6 +96,7 @@ export const router = createBrowserRouter([
             children: [
               { path: 'admin/users', element: withSuspense(<AdminUsersPage />) },
               { path: 'admin/all-users', element: withSuspense(<AdminAllUsersPage />) },
+              { path: 'admin/posters', element: withSuspense(<AdminPostersPage />) },
             ],
           },
         ],

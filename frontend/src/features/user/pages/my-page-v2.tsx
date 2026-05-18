@@ -138,7 +138,6 @@ export function MyPageV2() {
       {activeTab === 'profile' ? (
         <Card className="space-y-6">
           <div className="space-y-2">
-            <p className="section-kicker">Profile Edit</p>
             <h2 className="text-3xl font-semibold tracking-tight text-slate-900">개인정보 수정</h2>
             <p className="text-sm leading-7 text-slate-500">
               email, 닉네임, 기수, 등급, 비밀번호를 한 곳에서 수정할 수 있습니다.
@@ -240,7 +239,6 @@ export function MyPageV2() {
       ) : (
         <Card className="space-y-6">
           <div className="space-y-2">
-            <p className="section-kicker">Feedback</p>
             <h2 className="text-3xl font-semibold tracking-tight text-slate-900">피드백 확인</h2>
             <p className="text-sm leading-7 text-slate-500">
               공연별 라운드 피드백과 개인 요약 내용을 이곳에서 확인할 수 있도록 준비 중입니다.
