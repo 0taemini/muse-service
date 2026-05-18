@@ -19,33 +19,6 @@ type CalendarDay = {
 
 const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
 
-const demoMemorySources = [
-  {
-    title: '정기공연 리허설',
-    description: '무대 동선과 세팅을 맞춰보던 날의 기록입니다.',
-    day: 5,
-    url: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=900&q=80',
-  },
-  {
-    title: '합주실에서',
-    description: '곡 순서를 정리하고 파트별 밸런스를 맞추던 합주 사진입니다.',
-    day: 12,
-    url: 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=900&q=80',
-  },
-  {
-    title: '공연 전 단체 사진',
-    description: '무대에 올라가기 전, 모두가 모였던 순간입니다.',
-    day: 12,
-    url: 'https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=900&q=80',
-  },
-  {
-    title: '뒤풀이 기록',
-    description: '공연을 마치고 서로의 수고를 나누던 시간입니다.',
-    day: 23,
-    url: 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?auto=format&fit=crop&w=900&q=80',
-  },
-];
-
 function toDateInput(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -89,60 +62,6 @@ function canOpenImageDetail() {
   return typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches;
 }
 
-function createDemoMemoryImages(monthDate: Date): PhotoImage[] {
-  const year = monthDate.getFullYear();
-  const month = monthDate.getMonth();
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  const now = new Date().toISOString();
-
-  return demoMemorySources.map((source, index) => {
-    const date = new Date(year, month, Math.min(source.day, lastDay));
-    const dateKey = toDateInput(date);
-
-    return {
-      imageId: -(index + 1),
-      imageType: 'MEMORY',
-      albumId: null,
-      title: source.title,
-      description: source.description,
-      imageDate: dateKey,
-      displayOrder: index + 1,
-      status: 'READY',
-      originalKey: `demo-memory-${index + 1}`,
-      createdByUserId: 0,
-      createdByNickname: 'Muse',
-      createdAt: now,
-      updatedAt: now,
-      variants: [
-        {
-          variantType: 'THUMB_320',
-          s3Key: `demo-memory-${index + 1}-thumb`,
-          url: source.url,
-          width: 900,
-          height: 600,
-          contentType: 'image/jpeg',
-        },
-        {
-          variantType: 'THUMB_480',
-          s3Key: `demo-memory-${index + 1}-preview`,
-          url: source.url,
-          width: 900,
-          height: 600,
-          contentType: 'image/jpeg',
-        },
-        {
-          variantType: 'DETAIL_1200',
-          s3Key: `demo-memory-${index + 1}-detail`,
-          url: source.url,
-          width: 1200,
-          height: 800,
-          contentType: 'image/jpeg',
-        },
-      ],
-    };
-  });
-}
-
 export function MemoryCalendarSection() {
   const queryClient = useQueryClient();
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -174,18 +93,16 @@ export function MemoryCalendarSection() {
   });
 
   const memories = memoriesQuery.data?.data ?? [];
-  const demoMemories = useMemo(() => createDemoMemoryImages(monthDate), [monthDate]);
-  const visibleMemories = memories.length || memoriesQuery.isLoading || memoriesQuery.isError ? memories : demoMemories;
   const memoriesByDate = useMemo(
     () =>
-      visibleMemories.reduce<Record<string, PhotoImage[]>>((groups, image) => {
+      memories.reduce<Record<string, PhotoImage[]>>((groups, image) => {
         if (!image.imageDate) {
           return groups;
         }
         groups[image.imageDate] = [...(groups[image.imageDate] ?? []), image];
         return groups;
       }, {}),
-    [visibleMemories],
+    [memories],
   );
   const selectedMemories = memoriesByDate[selectedDate] ?? [];
 
@@ -335,9 +252,7 @@ export function MemoryCalendarSection() {
           >
             {days.map((day) => {
               const dayImages = memoriesByDate[day.dateKey] ?? [];
-              const thumbnail = dayImages[0] ? variantUrl(dayImages[0], ['DETAIL_1200', 'THUMB_480', 'THUMB_320']) : '';
-              const isSelected = selectedDate === day.dateKey;
-
+              const thumbnail = dayImages[0] ? variantUrl(dayImages[0], ['THUMB_320', 'THUMB_480', 'DETAIL_1200']) : '';
               return (
                 <button
                   key={day.dateKey}
@@ -345,13 +260,17 @@ export function MemoryCalendarSection() {
                   onClick={() => selectDate(day.dateKey)}
                   className={cn(
                     'relative aspect-square min-h-[48px] border-b border-r border-slate-100 bg-white text-left transition hover:bg-slate-50 sm:min-h-[56px]',
-                    isSelected ? 'z-10' : '',
                     !day.inCurrentMonth ? 'bg-slate-50/70 text-slate-300' : 'text-slate-700',
                   )}
                 >
-                  {thumbnail ? <img src={thumbnail} alt="" className="absolute inset-1 h-[calc(100%-8px)] w-[calc(100%-8px)] rounded-[4px] bg-slate-950 object-contain" loading="lazy" /> : null}
-                  {isSelected ? <span className="pointer-events-none absolute inset-0 z-20 shadow-[inset_0_0_0_2px_#5a43ba]" /> : null}
-                  <span className={cn('absolute left-1 top-1 z-30 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white/88 px-1 text-[11px] font-bold shadow-sm sm:left-1.5 sm:top-1.5 sm:h-6 sm:min-w-6 sm:text-xs', !day.inCurrentMonth ? 'text-slate-300' : '')}>
+                  {thumbnail ? <img src={thumbnail} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" /> : null}
+                  <span
+                    className={cn(
+                      'absolute left-1 top-1 z-30 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold shadow-sm sm:left-1.5 sm:top-1.5 sm:h-6 sm:min-w-6 sm:text-xs',
+                      'bg-white/88',
+                      !day.inCurrentMonth ? 'text-slate-300' : '',
+                    )}
+                  >
                     {day.day}
                   </span>
                   {dayImages.length > 1 ? (
