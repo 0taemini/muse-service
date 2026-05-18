@@ -10,6 +10,10 @@ import { Input } from '@shared/components/ui/input';
 import { Modal } from '@shared/components/ui/modal';
 import { StatePanel } from '@shared/components/ui/state-panel';
 import { cn } from '@shared/lib/cn';
+import photo2025Mt from '../../../../2025뮤즈MT사진.png';
+import photo2025Regular from '../../../../2025정기공연사진.png';
+import poster2024Regular from '../../../../2024정기공연.jpg';
+import poster2025Early from '../../../../2025초반공연포스터.jpg';
 
 type CalendarDay = {
   dateKey: string;
@@ -62,6 +66,50 @@ function canOpenImageDetail() {
   return typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches;
 }
 
+function createDemoMemory(imageId: number, imageDate: string, url: string, title: string): PhotoImage {
+  return {
+    imageId,
+    imageType: 'MEMORY',
+    albumId: null,
+    title,
+    description: null,
+    imageDate,
+    displayOrder: 0,
+    status: 'READY',
+    originalKey: '',
+    createdByUserId: 0,
+    createdByNickname: 'demo',
+    createdAt: '',
+    updatedAt: '',
+    variants: [
+      {
+        variantType: 'THUMB_320',
+        s3Key: '',
+        url,
+        width: null,
+        height: null,
+        contentType: 'image/*',
+      },
+    ],
+  };
+}
+
+function thumbnailRotation(dateKey: string) {
+  const total = dateKey.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return [-5.5, 4.2, -3.8, 5.8, -6.2, 4.9][total % 6];
+}
+
+function memoryLabel(dateKey: string) {
+  const labels = ['LIVE', 'REHEARSAL', 'MT', 'SETLIST'];
+  const total = dateKey.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return labels[total % labels.length];
+}
+
+function ticketRotation(dateKey: string) {
+  const total = dateKey.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return [-8, 5, -6, 7][total % 4];
+}
+
 export function MemoryCalendarSection() {
   const queryClient = useQueryClient();
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -93,7 +141,20 @@ export function MemoryCalendarSection() {
     queryFn: () => photoApi.getMemories(range),
   });
 
-  const memories = memoriesQuery.data?.data ?? [];
+  const demoMemories = useMemo(() => {
+    const year = monthDate.getFullYear();
+    const month = String(monthDate.getMonth() + 1).padStart(2, '0');
+
+    return [
+      createDemoMemory(-1, `${year}-${month}-05`, photo2025Mt, '임시 추억 1'),
+      createDemoMemory(-2, `${year}-${month}-06`, photo2025Regular, '임시 추억 2'),
+      createDemoMemory(-3, `${year}-${month}-07`, poster2024Regular, '임시 추억 3'),
+      createDemoMemory(-4, `${year}-${month}-12`, poster2025Early, '임시 추억 4'),
+      createDemoMemory(-5, `${year}-${month}-13`, photo2025Regular, '임시 추억 5'),
+      createDemoMemory(-6, `${year}-${month}-14`, photo2025Mt, '임시 추억 6'),
+    ];
+  }, [monthDate]);
+  const memories = [...(memoriesQuery.data?.data ?? []), ...demoMemories];
   const memoriesByDate = useMemo(
     () =>
       memories.reduce<Record<string, PhotoImage[]>>((groups, image) => {
@@ -270,12 +331,17 @@ export function MemoryCalendarSection() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="rounded-[20px] border border-[rgba(36,27,66,0.08)] bg-white px-2.5 py-4 shadow-[0_12px_28px_rgba(52,35,110,0.05)] md:rounded-[28px] md:px-5 md:py-6">
-          <div className="mb-4 flex items-center justify-between gap-2">
+        <div className="relative overflow-hidden rounded-[20px] border border-[#dcc89d] bg-[#fff8eb] px-2.5 py-4 shadow-[0_18px_34px_rgba(100,72,24,0.12)] md:rounded-[28px] md:px-5 md:py-6">
+          <span className="pointer-events-none absolute -left-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-[#f7f2ea] md:h-8 md:w-8" />
+          <span className="pointer-events-none absolute -right-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-[#f7f2ea] md:h-8 md:w-8" />
+          <div className="mb-4 flex items-center justify-between gap-2 rounded-[14px] border border-[#ead9b5] bg-white/72 px-2 py-2 shadow-sm">
             <Button variant="ghost" size="sm" onClick={() => moveMonth(-1)}>
               이전
             </Button>
-            <p className="text-lg font-semibold text-[#241b42]">{monthLabel(monthDate)}</p>
+            <div className="text-center">
+              <p className="text-[10px] font-bold tracking-[0.28em] text-[#9b7a36]">MUSE MEMORY TICKET</p>
+              <p className="text-lg font-semibold text-[#241b42]">{monthLabel(monthDate)}</p>
+            </div>
             <Button variant="ghost" size="sm" onClick={() => moveMonth(1)}>
               다음
             </Button>
@@ -288,8 +354,9 @@ export function MemoryCalendarSection() {
               </div>
             ))}
           </div>
+          <div className="mb-2 border-t border-dashed border-[#d6bf8d]" />
           <div
-            className="grid grid-cols-7 overflow-hidden rounded-[14px] border border-slate-100 [touch-action:pan-y] md:rounded-[18px]"
+            className="grid grid-cols-7 overflow-hidden rounded-[14px] border border-[#ead9b5] bg-white [touch-action:pan-y] md:rounded-[18px]"
             onTouchStart={handleCalendarTouchStart}
             onTouchEnd={handleCalendarTouchEnd}
           >
@@ -297,6 +364,8 @@ export function MemoryCalendarSection() {
               const dayImages = memoriesByDate[day.dateKey] ?? [];
               const thumbnail = dayImages[0] ? variantUrl(dayImages[0], ['THUMB_320', 'THUMB_480', 'DETAIL_1200']) : '';
               const isToday = day.dateKey === todayDate;
+              const rotation = thumbnailRotation(day.dateKey);
+              const label = memoryLabel(day.dateKey);
               return (
                 <button
                   key={day.dateKey}
@@ -307,7 +376,29 @@ export function MemoryCalendarSection() {
                     !day.inCurrentMonth ? 'bg-slate-50/70 text-slate-300' : 'text-slate-700',
                   )}
                 >
-                  {thumbnail ? <img src={thumbnail} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" /> : null}
+                  {thumbnail ? (
+                    <>
+                      <img
+                        src={thumbnail}
+                        alt=""
+                        className="absolute inset-[2px] h-[calc(100%-4px)] w-[calc(100%-4px)] rounded-[4px] object-cover shadow-[0_4px_10px_rgba(15,23,42,0.18)] transition duration-200 hover:rotate-0"
+                        style={{ transform: `rotate(${rotation}deg)` }}
+                        loading="lazy"
+                      />
+                      <span
+                        className="absolute -right-1 top-1 z-20 inline-flex items-center gap-1 rounded-[2px] border border-[#d8c38e] bg-[#fff4d8] px-1.5 py-1 text-[7px] font-bold leading-none tracking-[0.08em] text-[#5f4313] shadow-[0_2px_6px_rgba(73,52,18,0.22)] sm:right-0 sm:top-1.5 sm:px-2 sm:text-[8px]"
+                        style={{ transform: `rotate(${ticketRotation(day.dateKey)}deg)` }}
+                      >
+                        <span className="inline-block h-1 w-1 rounded-full bg-[#c8a65b]" />
+                        {label}
+                      </span>
+                      <span className="pointer-events-none absolute inset-x-1 bottom-1 z-20 flex items-center justify-between gap-[2px] rounded-[2px] bg-white/82 px-1 py-0.5 shadow-sm sm:inset-x-1.5 sm:bottom-1.5">
+                        {[0, 1, 2, 3, 4].map((index) => (
+                          <span key={`${day.dateKey}-stub-${index}`} className="h-[1px] flex-1 bg-[#5f4313]/55" />
+                        ))}
+                      </span>
+                    </>
+                  ) : null}
                   <span
                     className={cn(
                       'absolute left-1 top-1 z-30 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold shadow-sm sm:left-1.5 sm:top-1.5 sm:h-6 sm:min-w-6 sm:text-xs',
@@ -328,9 +419,12 @@ export function MemoryCalendarSection() {
           </div>
         </div>
 
-        <aside className="rounded-[20px] border border-[rgba(95,75,182,0.1)] bg-white p-4 shadow-[0_12px_28px_rgba(52,35,110,0.05)] md:rounded-[28px] md:p-5">
+        <aside className="relative overflow-hidden rounded-[20px] border border-[#dcc89d] bg-[#fff8eb] p-4 shadow-[0_18px_34px_rgba(100,72,24,0.12)] md:rounded-[28px] md:p-5">
+          <span className="pointer-events-none absolute -left-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-[#f7f2ea] md:h-8 md:w-8" />
+          <span className="pointer-events-none absolute -right-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-[#f7f2ea] md:h-8 md:w-8" />
           <div className="flex items-start justify-between gap-3">
             <div>
+              <p className="text-[10px] font-bold tracking-[0.28em] text-[#9b7a36]">ADMIT ONE</p>
               <p className="text-xs font-semibold text-[#6f678b]">선택한 날짜</p>
               <h3 className="mt-1 text-xl font-semibold text-[#241b42]">{selectedDateLabel(selectedDate)}</h3>
             </div>
@@ -345,6 +439,8 @@ export function MemoryCalendarSection() {
               </Button>
             </div>
           </div>
+
+          <div className="my-4 border-t border-dashed border-[#d6bf8d]" />
 
           <div className="mt-4 grid grid-cols-3 gap-2">
             {memoriesQuery.isLoading ? (
