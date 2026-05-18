@@ -331,17 +331,14 @@ export function MemoryCalendarSection() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="relative overflow-hidden rounded-[20px] border border-[#dcc89d] bg-[#fff8eb] px-2.5 py-4 shadow-[0_18px_34px_rgba(100,72,24,0.12)] md:rounded-[28px] md:px-5 md:py-6">
-          <span className="pointer-events-none absolute -left-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-[#f7f2ea] md:h-8 md:w-8" />
-          <span className="pointer-events-none absolute -right-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-[#f7f2ea] md:h-8 md:w-8" />
-          <div className="mb-4 flex items-center justify-between gap-2 rounded-[14px] border border-[#ead9b5] bg-white/72 px-2 py-2 shadow-sm">
+        <div className="relative overflow-hidden rounded-[20px] border border-[rgba(95,75,182,0.12)] bg-white px-2.5 py-4 shadow-[0_12px_28px_rgba(52,35,110,0.05)] md:rounded-[28px] md:px-5 md:py-6">
+          <span className="pointer-events-none absolute -left-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-[#f7f5ff] md:h-8 md:w-8" />
+          <span className="pointer-events-none absolute -right-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-[#f7f5ff] md:h-8 md:w-8" />
+          <div className="mb-4 flex items-center justify-between gap-2 px-2 py-2">
             <Button variant="ghost" size="sm" onClick={() => moveMonth(-1)}>
               이전
             </Button>
-            <div className="text-center">
-              <p className="text-[10px] font-bold tracking-[0.28em] text-[#9b7a36]">MUSE MEMORY TICKET</p>
-              <p className="text-lg font-semibold text-[#241b42]">{monthLabel(monthDate)}</p>
-            </div>
+            <p className="text-lg font-semibold text-[#241b42]">{monthLabel(monthDate)}</p>
             <Button variant="ghost" size="sm" onClick={() => moveMonth(1)}>
               다음
             </Button>
@@ -354,9 +351,9 @@ export function MemoryCalendarSection() {
               </div>
             ))}
           </div>
-          <div className="mb-2 border-t border-dashed border-[#d6bf8d]" />
+          <div className="mb-2 border-t border-dashed border-[#d9d1f5]" />
           <div
-            className="grid grid-cols-7 overflow-hidden rounded-[14px] border border-[#ead9b5] bg-white [touch-action:pan-y] md:rounded-[18px]"
+            className="grid grid-cols-7 overflow-hidden rounded-[14px] border border-slate-100 bg-white [touch-action:pan-y] md:rounded-[18px]"
             onTouchStart={handleCalendarTouchStart}
             onTouchEnd={handleCalendarTouchEnd}
           >
@@ -392,7 +389,7 @@ export function MemoryCalendarSection() {
                         <span className="inline-block h-1 w-1 rounded-full bg-[#c8a65b]" />
                         {label}
                       </span>
-                      <span className="pointer-events-none absolute inset-x-1 bottom-1 z-20 flex items-center justify-between gap-[2px] rounded-[2px] bg-white/82 px-1 py-0.5 shadow-sm sm:inset-x-1.5 sm:bottom-1.5">
+                      <span className="pointer-events-none absolute inset-x-1 bottom-1 z-20 flex items-center justify-between gap-[2px] rounded-[2px] bg-white/88 px-1 py-0.5 shadow-sm sm:inset-x-1.5 sm:bottom-1.5">
                         {[0, 1, 2, 3, 4].map((index) => (
                           <span key={`${day.dateKey}-stub-${index}`} className="h-[1px] flex-1 bg-[#5f4313]/55" />
                         ))}
@@ -401,8 +398,8 @@ export function MemoryCalendarSection() {
                   ) : null}
                   <span
                     className={cn(
-                      'absolute left-1 top-1 z-30 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold shadow-sm sm:left-1.5 sm:top-1.5 sm:h-6 sm:min-w-6 sm:text-xs',
-                      isToday ? 'bg-rose-500 text-white' : 'bg-white/88',
+                      'absolute left-1 top-1 z-30 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold sm:left-1.5 sm:top-1.5 sm:h-6 sm:min-w-6 sm:text-xs',
+                      isToday ? 'bg-rose-500 text-white shadow-sm' : thumbnail ? 'bg-white/62 text-slate-700/75' : 'bg-white/88 shadow-sm',
                       !isToday && !day.inCurrentMonth ? 'text-slate-300' : '',
                     )}
                   >
@@ -419,12 +416,11 @@ export function MemoryCalendarSection() {
           </div>
         </div>
 
-        <aside className="relative overflow-hidden rounded-[20px] border border-[#dcc89d] bg-[#fff8eb] p-4 shadow-[0_18px_34px_rgba(100,72,24,0.12)] md:rounded-[28px] md:p-5">
-          <span className="pointer-events-none absolute -left-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-[#f7f2ea] md:h-8 md:w-8" />
-          <span className="pointer-events-none absolute -right-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-[#f7f2ea] md:h-8 md:w-8" />
+        <aside className="relative overflow-hidden rounded-[20px] border border-[rgba(95,75,182,0.12)] bg-white p-4 shadow-[0_12px_28px_rgba(52,35,110,0.05)] md:rounded-[28px] md:p-5">
+          <span className="pointer-events-none absolute -left-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-[#f7f5ff] md:h-8 md:w-8" />
+          <span className="pointer-events-none absolute -right-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-[#f7f5ff] md:h-8 md:w-8" />
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-[10px] font-bold tracking-[0.28em] text-[#9b7a36]">ADMIT ONE</p>
               <p className="text-xs font-semibold text-[#6f678b]">선택한 날짜</p>
               <h3 className="mt-1 text-xl font-semibold text-[#241b42]">{selectedDateLabel(selectedDate)}</h3>
             </div>
@@ -440,7 +436,7 @@ export function MemoryCalendarSection() {
             </div>
           </div>
 
-          <div className="my-4 border-t border-dashed border-[#d6bf8d]" />
+          <div className="my-4 border-t border-dashed border-[#d9d1f5]" />
 
           <div className="mt-4 grid grid-cols-3 gap-2">
             {memoriesQuery.isLoading ? (
