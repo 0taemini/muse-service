@@ -53,6 +53,16 @@ public enum ErrorCode {
     CALENDAR_EVENT_NOT_FOUND(HttpStatus.NOT_FOUND, "CALENDAR_001", "일정을 찾을 수 없습니다."),
     CALENDAR_EVENT_INVALID_DATE_RANGE(HttpStatus.BAD_REQUEST, "CALENDAR_002", "일정 종료 시간은 시작 시간보다 뒤여야 합니다."),
 
+    PHOTO_ALBUM_NOT_FOUND(HttpStatus.NOT_FOUND, "PHOTO_001", "사진 앨범을 찾을 수 없습니다."),
+    PHOTO_ALBUM_ACCESS_DENIED(HttpStatus.FORBIDDEN, "PHOTO_002", "사진 앨범 작성자 또는 관리자만 수정/삭제할 수 있습니다."),
+    IMAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "PHOTO_003", "이미지를 찾을 수 없습니다."),
+    IMAGE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "PHOTO_004", "이미지 작성자 또는 관리자만 수정/삭제할 수 있습니다."),
+    IMAGE_POSTER_ADMIN_ONLY(HttpStatus.FORBIDDEN, "PHOTO_005", "포스터 이미지는 관리자만 업로드/수정/삭제할 수 있습니다."),
+    IMAGE_INVALID_TYPE_POLICY(HttpStatus.BAD_REQUEST, "PHOTO_006", "이미지 타입에 맞지 않는 요청입니다."),
+    IMAGE_INVALID_CONTENT_TYPE(HttpStatus.BAD_REQUEST, "PHOTO_007", "지원하지 않는 이미지 형식입니다."),
+    IMAGE_STORAGE_NOT_CONFIGURED(HttpStatus.INTERNAL_SERVER_ERROR, "PHOTO_008", "이미지 저장소 설정이 완료되지 않았습니다."),
+    IMAGE_FILE_TOO_LARGE(HttpStatus.BAD_REQUEST, "PHOTO_009", "업로드 가능한 이미지 크기를 초과했습니다."),
+
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "COMMON_001", "요청값 검증에 실패했습니다."),
     DATA_CONFLICT(HttpStatus.CONFLICT, "COMMON_002", "중복되었거나 무결성 제약을 위반한 요청입니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_999", "서버 내부 오류가 발생했습니다.");
