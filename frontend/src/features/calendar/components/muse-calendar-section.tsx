@@ -443,7 +443,7 @@ export function MuseCalendarSection() {
 
   const dismissDayEventsModal = () => {
     dayEventsModalHistoryRef.current = false;
-    dismissDayEventsModal();
+    setIsDayEventsModalOpen(false);
 
     if (window.history.state?.museCalendarDayEventsOpen) {
       window.history.replaceState(
@@ -499,7 +499,7 @@ export function MuseCalendarSection() {
   };
 
   const openEditForm = (event: CalendarEvent) => {
-    setIsDayEventsModalOpen(false);
+    dismissDayEventsModal();
     setEditingEvent(event);
     setForm(formFromEvent(event));
     setIsFormOpen(true);
