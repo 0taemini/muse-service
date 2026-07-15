@@ -28,3 +28,5 @@ deploy/lambda/**/build/
 # Codex
 AGENTS.md
 doc/
+portfolio_analysis/
+portfolio_analysis_full/
