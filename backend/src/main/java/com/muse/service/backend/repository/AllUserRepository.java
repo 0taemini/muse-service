@@ -10,6 +10,13 @@ import org.springframework.data.repository.query.Param;
 public interface AllUserRepository extends JpaRepository<AllUser, Integer> {
     List<AllUser> findAllByOrderByCohortDescNameAsc();
 
+        List<AllUser> findAllByStatusAndCohortInOrderByCohortDescNameAsc(
+                        AllUser.AllUserStatus status,
+                        List<Integer> cohorts
+        );
+
+        List<AllUser> findAllByAllUserIdInAndStatus(List<Integer> allUserIds, AllUser.AllUserStatus status);
+
     boolean existsByEmailIgnoreCase(String email);
 
     boolean existsByEmailIgnoreCaseAndAllUserIdNot(String email, Integer allUserId);

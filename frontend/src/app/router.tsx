@@ -65,6 +65,12 @@ const AdminPostersPage = lazy(() =>
   })),
 );
 
+const AdminSmsPage = lazy(() =>
+  import('@features/admin/pages/admin-sms-page').then((module) => ({
+    default: module.AdminSmsPage,
+  })),
+);
+
 function withSuspense(page: ReactNode) {
   return <Suspense fallback={<RouteFallback />}>{page}</Suspense>;
 }
@@ -97,6 +103,7 @@ export const router = createBrowserRouter([
               { path: 'admin/users', element: withSuspense(<AdminUsersPage />) },
               { path: 'admin/all-users', element: withSuspense(<AdminAllUsersPage />) },
               { path: 'admin/posters', element: withSuspense(<AdminPostersPage />) },
+              { path: 'admin/sms', element: withSuspense(<AdminSmsPage />) },
             ],
           },
         ],

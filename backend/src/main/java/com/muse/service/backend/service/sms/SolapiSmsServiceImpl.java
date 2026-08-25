@@ -19,6 +19,7 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 public class SolapiSmsServiceImpl implements SmsService {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final int BULK_REQUEST_SIZE = 100;
 
     private final WebClient webClient;
     private final String apiKey;
@@ -80,6 +81,48 @@ public class SolapiSmsServiceImpl implements SmsService {
         } catch (Exception exception) {
             log.error("SMS 발송 실패: phone={}", maskPhone(sanitizedPhone), exception);
             throw new CustomException(ErrorCode.SMS_SEND_FAILED);
+        }
+    }
+
+    @Override
+    public void sendBulk(List<SmsMessage> messages) {
+        for (int start = 0; start < messages.size(); start += BULK_REQUEST_SIZE) {
+            int end = Math.min(start + BULK_REQUEST_SIZE, messages.size());
+            sendBatch(messages.subList(start, end));
+        }
+    }
+
+    private void sendBatch(List<SmsMessage> messages) {
+        try {
+            String sanitizedFrom = fromPhoneNumber.replaceAll("-", "");
+            List<MessageRequest> requests = messages.stream()
+                    .map(message -> MessageRequest.builder()
+                            .from(sanitizedFrom)
+                            .to(message.phone().replaceAll("[^0-9]", ""))
+                            .text(message.text())
+                            .type("SMS")
+                            .build())
+                    .toList();
+
+            String response = webClient
+                    .post()
+                    .uri("/messages/v4/send-many/detail")
+                    .header("Authorization", SolapiAuth.createAuthHeader(apiKey, apiSecret))
+                    .header("Content-Type", "application/json; charset=utf-8")
+                    .bodyValue(MessagePayload.builder().messages(requests).build())
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            log.info("단체 SMS 발송 완료: count={}, responseLength={}",
+                    messages.size(), response == null ? 0 : response.length());
+        } catch (WebClientResponseException exception) {
+            log.error("단체 SMS 발송 실패: count={}, status={}, responseLength={}",
+                    messages.size(), exception.getStatusCode(), exception.getResponseBodyAsString().length(), exception);
+            throw new CustomException(ErrorCode.BULK_SMS_SEND_FAILED);
+        } catch (Exception exception) {
+            log.error("단체 SMS 발송 실패: count={}", messages.size(), exception);
+            throw new CustomException(ErrorCode.BULK_SMS_SEND_FAILED);
         }
     }
 

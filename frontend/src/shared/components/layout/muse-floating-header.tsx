@@ -33,6 +33,7 @@ const adminUserSubItems = [
 ] as const;
 
 const adminPosterItem = { to: '/admin/posters', label: '포스터 관리' } as const;
+const adminSmsItem = { to: '/admin/sms', label: '단체 문자' } as const;
 
 const myPageSubItems = [
   { to: '/me?tab=profile', label: '개인정보 수정' },
@@ -219,6 +220,16 @@ function FloatingAdminDropdown({
               className="rounded-[18px] px-4 py-3 text-sm font-medium text-[#5a5180] transition hover:bg-[#faf7ff] hover:text-[#2d2b3f]"
             >
               {adminPosterItem.label}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onNavigate(adminSmsItem.to);
+              }}
+              className="rounded-[18px] px-4 py-3 text-sm font-medium text-[#5a5180] transition hover:bg-[#faf7ff] hover:text-[#2d2b3f]"
+            >
+              {adminSmsItem.label}
             </button>
           </div>
         </div>
