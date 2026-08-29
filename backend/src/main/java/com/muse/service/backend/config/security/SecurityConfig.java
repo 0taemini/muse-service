@@ -46,6 +46,7 @@ public class SecurityConfig {
                         .requestMatchers("/error", "/favicon.ico").permitAll()
                         .requestMatchers("/ws", "/ws/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/prometheus").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/calendar/events/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/images/**").permitAll()
