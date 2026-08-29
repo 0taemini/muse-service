@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   postgres:
     image: postgres:16
@@ -33,6 +31,70 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: muse-prometheus
+    restart: unless-stopped
+    profiles: [ "monitoring" ]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=15d"
+    volumes:
+      - ../monitoring/prometheus/local.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      postgres-exporter:
+        condition: service_started
+      redis-exporter:
+        condition: service_started
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    container_name: muse-grafana
+    restart: unless-stopped
+    profiles: [ "monitoring" ]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    container_name: muse-postgres-exporter
+    restart: unless-stopped
+    profiles: [ "monitoring" ]
+    environment:
+      DATA_SOURCE_URI: postgres:5432/muse_local?sslmode=disable
+      DATA_SOURCE_USER: postgres
+      DATA_SOURCE_PASS: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.77.0
+    container_name: muse-redis-exporter
+    restart: unless-stopped
+    profiles: [ "monitoring" ]
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-6379}
+    depends_on:
+      redis:
+        condition: service_healthy
 #  mailhog:
 #    image: mailhog/mailhog:latest
 #    container_name: muse-mailhog
@@ -46,3 +108,5 @@ services:
 volumes:
   pg-data:
   redis-data:
+  prometheus-data:
+  grafana-data:
