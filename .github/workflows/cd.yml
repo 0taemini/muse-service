@@ -107,9 +107,10 @@ jobs:
       - name: Prepare Deploy Files
         shell: bash
         run: |
-          mkdir -p .deploy
+          mkdir -p .deploy/monitoring
           cp deploy/docker-compose.prod.yml .deploy/docker-compose.prod.yml
           cp deploy/nginx.conf .deploy/nginx.conf
+          cp -R monitoring/. .deploy/monitoring/
 
       - name: Create Remote App Directory
         uses: appleboy/ssh-action@v1.2.0
@@ -128,7 +129,7 @@ jobs:
           username: ${{ secrets.ORACLE_USER }}
           key: ${{ secrets.ORACLE_SSH_KEY }}
           port: ${{ secrets.ORACLE_PORT }}
-          source: ".deploy/docker-compose.prod.yml,.deploy/nginx.conf"
+          source: ".deploy/docker-compose.prod.yml,.deploy/nginx.conf,.deploy/monitoring"
           target: ${{ secrets.ORACLE_APP_DIR }}
           strip_components: 1
 
@@ -142,7 +143,20 @@ jobs:
           script: |
             cd ${{ secrets.ORACLE_APP_DIR }}
             test -f .env || { echo ".env 파일이 서버에 없습니다."; exit 1; }
+            grep -Eq '^GRAFANA_ADMIN_PASSWORD=.+$' .env || { echo "GRAFANA_ADMIN_PASSWORD가 .env에 설정되지 않았습니다."; exit 1; }
             echo "${{ secrets.GHCR_READ_TOKEN }}" | docker login ${{ env.REGISTRY }} -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
-            docker compose --env-file .env -f docker-compose.prod.yml pull
-            docker compose --env-file .env -f docker-compose.prod.yml up -d
+            docker compose --profile monitoring --env-file .env -f docker-compose.prod.yml pull
+            docker compose --profile monitoring --env-file .env -f docker-compose.prod.yml up -d
+            docker compose --profile monitoring --env-file .env -f docker-compose.prod.yml ps
+            for attempt in $(seq 1 30); do
+              if curl --fail --silent http://127.0.0.1:3000/api/health > /dev/null \
+                && curl --fail --silent http://127.0.0.1:9090/-/healthy > /dev/null; then
+                break
+              fi
+              if [ "$attempt" -eq 30 ]; then
+                echo "Grafana 또는 Prometheus 상태 확인에 실패했습니다."
+                exit 1
+              fi
+              sleep 2
+            done
             docker image prune -f
