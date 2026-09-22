@@ -18,6 +18,9 @@ out/
 
 # Env
 .env
+load-tests/.env*
+load-tests/results/
+load-tests/scenarios-local/
 
 # Lambda build artifacts
 deploy/lambda/**/node_modules/

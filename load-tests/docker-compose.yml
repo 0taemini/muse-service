@@ -1,0 +1,11 @@
+services:
+  k6:
+    image: grafana/k6:0.57.0
+    env_file:
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./:/scripts:ro
+      - ./results:/results
+    command: run /scripts/performance-read.js
