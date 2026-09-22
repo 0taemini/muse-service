@@ -2,7 +2,9 @@ package com.muse.service.backend.service.performance;
 
 import com.muse.service.backend.dto.performance.PerformanceSongCreateRequest;
 import com.muse.service.backend.dto.performance.PerformanceSongDetailResponse;
-import com.muse.service.backend.dto.performance.PerformanceSongOrderUpdateRequest;
+import com.muse.service.backend.dto.performance.PerformanceSongOrderBatchUpdateRequest;
+import com.muse.service.backend.dto.performance.PerformanceSongOrderBatchUpdateResponse;
+import com.muse.service.backend.dto.performance.PerformanceSongResponse;
 import com.muse.service.backend.dto.performance.PerformanceSongSessionAssignmentRequest;
 import com.muse.service.backend.dto.performance.PerformanceSongSessionResponse;
 import com.muse.service.backend.dto.performance.PerformanceSongSessionsUpdateRequest;
@@ -25,7 +27,11 @@ import com.muse.service.backend.repository.UserRepository;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -138,22 +144,51 @@ public class PerformanceSongServiceImpl implements PerformanceSongService {
 
     @Override
     @Transactional
-    public PerformanceSongDetailResponse updateOrder(
+    public PerformanceSongOrderBatchUpdateResponse updateOrders(
             Integer performanceId,
-            Integer performanceSongId,
             Integer userId,
-            PerformanceSongOrderUpdateRequest request
+            PerformanceSongOrderBatchUpdateRequest request
     ) {
-        PerformanceSong performanceSong = findActivePerformanceSong(performanceId, performanceSongId);
-        ensureAuthorOrAdmin(performanceSong, userId);
-        performanceSong.changeOrderNo(request.orderNo());
-        log.info("공연 곡 순서 변경 완료: performanceId={}, performanceSongId={}, userId={}, orderNo={}",
-                performanceId, performanceSongId, userId, request.orderNo());
+        findPerformance(performanceId);
 
-        return toDetailResponse(
-                performanceSong,
-                performanceSongSessionRepository.findAllByPerformanceSong_PerformanceSongIdOrderByDisplayOrderAsc(performanceSongId)
-        );
+        Set<Integer> requestedSongIds = new HashSet<>();
+        for (PerformanceSongOrderBatchUpdateRequest.SongOrder songOrder : request.songs()) {
+            if (!requestedSongIds.add(songOrder.performanceSongId())) {
+                throw new CustomException(ErrorCode.PERFORMANCE_SONG_ORDER_INVALID);
+            }
+        }
+
+        if (performanceRepository.increaseSongOrderVersion(performanceId, request.expectedOrderVersion()) != 1) {
+            throw new CustomException(ErrorCode.PERFORMANCE_SONG_ORDER_CONFLICT);
+        }
+
+        List<PerformanceSong> allSongs = performanceSongRepository
+                .findAllActiveByPerformanceIdOrderByOrderNoAsc(performanceId);
+        Map<Integer, PerformanceSong> songsById = new HashMap<>();
+        allSongs.forEach(song -> songsById.put(song.getPerformanceSongId(), song));
+
+        for (PerformanceSongOrderBatchUpdateRequest.SongOrder songOrder : request.songs()) {
+            PerformanceSong song = songsById.get(songOrder.performanceSongId());
+            if (song == null) {
+                throw new CustomException(ErrorCode.PERFORMANCE_SONG_NOT_FOUND);
+            }
+            ensureAuthorOrAdmin(song, userId);
+            song.changeOrderNo(songOrder.orderNo());
+        }
+
+        Set<Integer> resultingOrders = new HashSet<>();
+        if (allSongs.stream().anyMatch(song -> !resultingOrders.add(song.getOrderNo()))) {
+            throw new CustomException(ErrorCode.PERFORMANCE_SONG_ORDER_INVALID);
+        }
+
+        List<PerformanceSongResponse> responseSongs = allSongs.stream()
+                .sorted(Comparator.comparing(PerformanceSong::getOrderNo))
+                .map(PerformanceSongResponse::from)
+                .toList();
+        long nextVersion = request.expectedOrderVersion() + 1;
+        log.info("공연 곡 순서 일괄 변경 완료: performanceId={}, userId={}, changedSongCount={}, songOrderVersion={}",
+                performanceId, userId, request.songs().size(), nextVersion);
+        return new PerformanceSongOrderBatchUpdateResponse(nextVersion, responseSongs);
     }
 
     @Override

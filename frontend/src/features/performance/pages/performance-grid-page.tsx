@@ -968,17 +968,22 @@ export function PerformanceGridPage() {
   const updateSongOrderMutation = useMutation({
     mutationFn: ({
       performanceId,
-      songId,
-      orderNo,
+      expectedOrderVersion,
+      songs,
     }: {
       performanceId: number;
-      songId: number;
-      orderNo: number;
-    }) => performanceApi.updateSongOrder(performanceId, songId, { orderNo }),
-    onSuccess: async (response) => {
-      await invalidatePerformance(response.data.performanceId);
+      expectedOrderVersion: number;
+      songs: Array<{ performanceSongId: number; orderNo: number }>;
+    }) => performanceApi.updateSongOrders(performanceId, { expectedOrderVersion, songs }),
+    onSuccess: async (_response, variables) => {
+      await invalidatePerformance(variables.performanceId);
     },
-    onError: (error) => setErrorMessage(toApiMessage(error)),
+    onError: async (error) => {
+      setErrorMessage(toApiMessage(error));
+      if (selectedPerformanceId) {
+        await invalidatePerformance(selectedPerformanceId);
+      }
+    },
   });
 
   const deleteSongMutation = useMutation({
@@ -1194,18 +1199,17 @@ export function PerformanceGridPage() {
       return;
     }
 
-    await Promise.all([
-      updateSongOrderMutation.mutateAsync({
-        performanceId: selectedPerformanceId,
-        songId: currentSong.performanceSongId,
-        orderNo: targetSong.orderNo,
-      }),
-      updateSongOrderMutation.mutateAsync({
-        performanceId: selectedPerformanceId,
-        songId: targetSong.performanceSongId,
-        orderNo: currentSong.orderNo,
-      }),
-    ]);
+    if (!performance) {
+      return;
+    }
+    await updateSongOrderMutation.mutateAsync({
+      performanceId: selectedPerformanceId,
+      expectedOrderVersion: performance.songOrderVersion,
+      songs: [
+        { performanceSongId: currentSong.performanceSongId, orderNo: targetSong.orderNo },
+        { performanceSongId: targetSong.performanceSongId, orderNo: currentSong.orderNo },
+      ],
+    });
   };
 
   const clearSongDragState = () => {
@@ -1305,15 +1309,17 @@ export function PerformanceGridPage() {
     }
 
     try {
-      await Promise.all(
-        changedSongs.map(({ song, orderNo }) =>
-          updateSongOrderMutation.mutateAsync({
-            performanceId: selectedPerformanceId,
-            songId: song.performanceSongId,
-            orderNo,
-          }),
-        ),
-      );
+      if (!performance) {
+        return;
+      }
+      await updateSongOrderMutation.mutateAsync({
+        performanceId: selectedPerformanceId,
+        expectedOrderVersion: performance.songOrderVersion,
+        songs: changedSongs.map(({ song, orderNo }) => ({
+          performanceSongId: song.performanceSongId,
+          orderNo,
+        })),
+      });
     } finally {
       clearSongDragState();
     }

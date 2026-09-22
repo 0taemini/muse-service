@@ -36,6 +36,9 @@ public class Performance {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "song_order_version", nullable = false, columnDefinition = "bigint default 0")
+    private Long songOrderVersion = 0L;
+
     @Builder
     public Performance(String title) {
         this.title = title;
@@ -46,6 +49,9 @@ public class Performance {
     void onCreate() {
         if (this.status == null) {
             this.status = PerformanceStatus.ONGOING;
+        }
+        if (this.songOrderVersion == null) {
+            this.songOrderVersion = 0L;
         }
         this.createdAt = LocalDateTime.now();
     }

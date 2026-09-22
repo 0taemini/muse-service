@@ -33,6 +33,7 @@ export interface PerformanceDetail {
   performanceId: number;
   title: string;
   status: PerformanceStatus;
+  songOrderVersion: number;
   songCount: number;
   createdAt: string;
   songs: PerformanceSongSummary[];
@@ -161,8 +162,17 @@ export interface UpdatePerformanceSongStatusPayload {
   selectionStatus: SelectionStatus;
 }
 
-export interface UpdatePerformanceSongOrderPayload {
-  orderNo: number;
+export interface UpdatePerformanceSongOrdersPayload {
+  expectedOrderVersion: number;
+  songs: Array<{
+    performanceSongId: number;
+    orderNo: number;
+  }>;
+}
+
+export interface UpdatePerformanceSongOrdersResponse {
+  songOrderVersion: number;
+  songs: PerformanceSongSummary[];
 }
 
 export interface UpdatePerformanceSongSessionsPayload {
@@ -222,9 +232,9 @@ export const performanceApi = {
     unwrap<PerformanceSongDetail>(
       http.patch(`/api/v1/performances/${performanceId}/songs/${performanceSongId}/status`, payload),
     ),
-  updateSongOrder: (performanceId: number, performanceSongId: number, payload: UpdatePerformanceSongOrderPayload) =>
-    unwrap<PerformanceSongDetail>(
-      http.patch(`/api/v1/performances/${performanceId}/songs/${performanceSongId}/order`, payload),
+  updateSongOrders: (performanceId: number, payload: UpdatePerformanceSongOrdersPayload) =>
+    unwrap<UpdatePerformanceSongOrdersResponse>(
+      http.patch(`/api/v1/performances/${performanceId}/songs/order`, payload),
     ),
   updateSongSessions: (
     performanceId: number,

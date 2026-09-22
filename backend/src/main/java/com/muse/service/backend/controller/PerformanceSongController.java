@@ -2,7 +2,8 @@ package com.muse.service.backend.controller;
 
 import com.muse.service.backend.dto.performance.PerformanceSongCreateRequest;
 import com.muse.service.backend.dto.performance.PerformanceSongDetailResponse;
-import com.muse.service.backend.dto.performance.PerformanceSongOrderUpdateRequest;
+import com.muse.service.backend.dto.performance.PerformanceSongOrderBatchUpdateRequest;
+import com.muse.service.backend.dto.performance.PerformanceSongOrderBatchUpdateResponse;
 import com.muse.service.backend.dto.performance.PerformanceSongSessionsUpdateRequest;
 import com.muse.service.backend.dto.performance.PerformanceSongStatusUpdateRequest;
 import com.muse.service.backend.dto.performance.PerformanceSongUpdateRequest;
@@ -105,24 +106,22 @@ public class PerformanceSongController {
         );
     }
 
-    @Operation(summary = "후보곡 순서 변경", description = "공연 안에서 후보곡의 표시 순서만 변경합니다.")
-    @PatchMapping("/{performanceSongId}/order")
-    public ResponseEntity<ApiResponse<PerformanceSongDetailResponse>> updateOrder(
+    @Operation(summary = "후보곡 순서 일괄 변경", description = "공연의 곡 순서를 버전 검증 후 하나의 트랜잭션으로 변경합니다.")
+    @PatchMapping("/order")
+    public ResponseEntity<ApiResponse<PerformanceSongOrderBatchUpdateResponse>> updateOrders(
             @PathVariable Integer performanceId,
-            @PathVariable Integer performanceSongId,
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @Valid @RequestBody PerformanceSongOrderUpdateRequest request,
+            @Valid @RequestBody PerformanceSongOrderBatchUpdateRequest request,
             HttpServletRequest httpRequest
     ) {
         Integer userId = authenticatedUserId(userDetails);
-        PerformanceSongDetailResponse response = performanceSongService.updateOrder(
+        PerformanceSongOrderBatchUpdateResponse response = performanceSongService.updateOrders(
                 performanceId,
-                performanceSongId,
                 userId,
                 request
         );
         return ResponseEntity.ok(
-                ApiResponse.of(HttpStatus.OK, "후보곡 순서가 변경되었습니다.", response, httpRequest.getRequestURI())
+                ApiResponse.of(HttpStatus.OK, "후보곡 순서가 일괄 변경되었습니다.", response, httpRequest.getRequestURI())
         );
     }
 

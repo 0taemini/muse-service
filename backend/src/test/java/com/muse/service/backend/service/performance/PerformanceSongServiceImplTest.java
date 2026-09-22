@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.muse.service.backend.dto.performance.PerformanceSongCreateRequest;
+import com.muse.service.backend.dto.performance.PerformanceSongOrderBatchUpdateRequest;
 import com.muse.service.backend.dto.performance.PerformanceSongSessionAssignmentRequest;
 import com.muse.service.backend.dto.performance.PerformanceSongSessionsUpdateRequest;
 import com.muse.service.backend.dto.performance.PerformanceSongStatusUpdateRequest;
@@ -179,6 +180,75 @@ class PerformanceSongServiceImplTest {
                 new PerformanceSongStatusUpdateRequest(PerformanceSong.SelectionStatus.OUT)
         )).isInstanceOfSatisfying(CustomException.class, exception ->
                 assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PERFORMANCE_SONG_ACCESS_DENIED));
+    }
+
+    @Test
+    void updateOrders_changesMultipleSongsAndReturnsNextVersion() {
+        Performance performance = performance(1);
+        User admin = user(9, User.UserRole.ADMIN);
+        PerformanceSong first = performanceSong(100, performance, user(3), "First", "Singer", 1);
+        PerformanceSong second = performanceSong(101, performance, user(4), "Second", "Singer", 2);
+
+        when(performanceRepository.findById(1)).thenReturn(Optional.of(performance));
+        when(performanceRepository.increaseSongOrderVersion(1, 7L)).thenReturn(1);
+        when(performanceSongRepository.findAllActiveByPerformanceIdOrderByOrderNoAsc(1))
+                .thenReturn(List.of(first, second));
+        when(userRepository.findById(9)).thenReturn(Optional.of(admin));
+
+        var response = performanceSongService.updateOrders(
+                1,
+                9,
+                new PerformanceSongOrderBatchUpdateRequest(7L, List.of(
+                        new PerformanceSongOrderBatchUpdateRequest.SongOrder(100, 2),
+                        new PerformanceSongOrderBatchUpdateRequest.SongOrder(101, 1)
+                ))
+        );
+
+        assertThat(response.songOrderVersion()).isEqualTo(8L);
+        assertThat(first.getOrderNo()).isEqualTo(2);
+        assertThat(second.getOrderNo()).isEqualTo(1);
+        assertThat(response.songs()).extracting("performanceSongId").containsExactly(101, 100);
+    }
+
+    @Test
+    void updateOrders_whenVersionChanged_throwsConflictWithoutChangingSongs() {
+        Performance performance = performance(1);
+        when(performanceRepository.findById(1)).thenReturn(Optional.of(performance));
+        when(performanceRepository.increaseSongOrderVersion(1, 7L)).thenReturn(0);
+
+        assertThatThrownBy(() -> performanceSongService.updateOrders(
+                1,
+                9,
+                new PerformanceSongOrderBatchUpdateRequest(7L, List.of(
+                        new PerformanceSongOrderBatchUpdateRequest.SongOrder(100, 2)
+                ))
+        )).isInstanceOfSatisfying(CustomException.class, exception ->
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PERFORMANCE_SONG_ORDER_CONFLICT));
+
+        verify(performanceSongRepository, never()).findAllActiveByPerformanceIdOrderByOrderNoAsc(1);
+    }
+
+    @Test
+    void updateOrders_whenResultContainsDuplicateOrder_throwsInvalidOrder() {
+        Performance performance = performance(1);
+        User admin = user(9, User.UserRole.ADMIN);
+        PerformanceSong first = performanceSong(100, performance, user(3), "First", "Singer", 1);
+        PerformanceSong second = performanceSong(101, performance, user(4), "Second", "Singer", 2);
+
+        when(performanceRepository.findById(1)).thenReturn(Optional.of(performance));
+        when(performanceRepository.increaseSongOrderVersion(1, 7L)).thenReturn(1);
+        when(performanceSongRepository.findAllActiveByPerformanceIdOrderByOrderNoAsc(1))
+                .thenReturn(List.of(first, second));
+        when(userRepository.findById(9)).thenReturn(Optional.of(admin));
+
+        assertThatThrownBy(() -> performanceSongService.updateOrders(
+                1,
+                9,
+                new PerformanceSongOrderBatchUpdateRequest(7L, List.of(
+                        new PerformanceSongOrderBatchUpdateRequest.SongOrder(100, 2)
+                ))
+        )).isInstanceOfSatisfying(CustomException.class, exception ->
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PERFORMANCE_SONG_ORDER_INVALID));
     }
 
     @Test

@@ -37,6 +37,8 @@ public enum ErrorCode {
     PERFORMANCE_SESSION_COLUMN_NOT_FOUND(HttpStatus.NOT_FOUND, "PERFORMANCE_007", "공연 공통 세션 컬럼을 찾을 수 없습니다."),
     PERFORMANCE_SESSION_COLUMN_LOCKED(HttpStatus.CONFLICT, "PERFORMANCE_008", "이미 채팅방이 생성된 공연이므로 공연 공통 세션 컬럼을 변경할 수 없습니다."),
     PERFORMANCE_SESSION_COLUMN_DUPLICATE(HttpStatus.CONFLICT, "PERFORMANCE_009", "같은 이름의 세션 컬럼이 이미 존재합니다."),
+    PERFORMANCE_SONG_ORDER_CONFLICT(HttpStatus.CONFLICT, "PERFORMANCE_010", "다른 사용자가 곡 순서를 변경했습니다. 최신 목록을 불러온 후 다시 시도해 주세요."),
+    PERFORMANCE_SONG_ORDER_INVALID(HttpStatus.BAD_REQUEST, "PERFORMANCE_011", "곡 순서 요청이 올바르지 않습니다."),
 
     CHAT_ROOM_ALREADY_EXISTS(HttpStatus.CONFLICT, "CHAT_001", "이미 생성된 채팅방이 있습니다."),
     CHAT_ROOM_ONLY_CONFIRMED_ALLOWED(HttpStatus.BAD_REQUEST, "CHAT_002", "확정(CONFIRMED) 상태의 곡만 채팅방을 만들 수 있습니다."),
