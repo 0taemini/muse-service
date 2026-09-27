@@ -21,7 +21,22 @@ docker compose --profile monitoring up -d
 - 애플리케이션 상태: http://localhost:8080/actuator/health
 - 애플리케이션 메트릭: http://localhost:8080/actuator/prometheus
 
-Prometheus의 **Status > Targets**에서 `muse-backend`, `muse-postgres`, `muse-redis`가 모두 `UP`인지 확인한다.
+Prometheus의 **Status > Targets**에서 `muse-backend`, `muse-postgres`, `muse-redis`, `muse-cadvisor`가 모두 `UP`인지 확인한다.
+
+## 채팅 부하 테스트 메트릭
+
+Grafana의 `Muse Service Overview` 대시보드에서 다음 항목을 확인한다.
+
+- WebSocket 활성 연결, 연결 속도, 비정상 종료
+- 채팅 메시지 성공·실패 처리량과 서버 처리시간 p95
+- inbound/outbound STOMP 프레임 처리량
+- WebSocket executor active thread, queue, rejected task
+- backend 컨테이너 CPU, 메모리, 네트워크
+- `pg_stat_statements` 기반 SQL 작업별 실행량과 평균 실행시간
+
+`pg_stat_statements`는 Compose가 PostgreSQL 시작 옵션을 적용하고 `CREATE EXTENSION IF NOT EXISTS`를 실행한다.
+처음 적용할 때 PostgreSQL 컨테이너가 한 번 재시작되지만 기존 volume의 데이터는 유지된다. 통계를 삭제하는
+`pg_stat_statements_reset()`은 자동으로 실행하지 않는다.
 
 ## 운영 실행
 

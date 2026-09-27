@@ -19,6 +19,11 @@ out/
 # Env
 .env
 
+# Load test local files
+load-tests/.env*
+load-tests/results/
+load-tests/scenarios-local/
+
 # Lambda build artifacts
 deploy/lambda/**/node_modules/
 deploy/lambda/**/*.zip
