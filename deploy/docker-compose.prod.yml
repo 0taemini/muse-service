@@ -5,6 +5,7 @@ services:
     restart: unless-stopped
     networks:
       - muse-network
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
     environment:
       TZ: Asia/Seoul
       POSTGRES_DB: ${POSTGRES_DB}
@@ -19,6 +20,22 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
+  postgres-statements-init:
+    image: postgres:16
+    container_name: muse-postgres-statements-init
+    restart: "no"
+    networks:
+      - muse-network
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    command:
+      - sh
+      - -c
+      - psql -h postgres -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -v ON_ERROR_STOP=1 -c 'CREATE EXTENSION IF NOT EXISTS pg_stat_statements;'
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   redis:
     image: redis:7
@@ -94,9 +111,26 @@ services:
       DATA_SOURCE_URI: postgres:5432/${POSTGRES_DB}?sslmode=disable
       DATA_SOURCE_USER: ${POSTGRES_USER}
       DATA_SOURCE_PASS: ${POSTGRES_PASSWORD}
+      PG_EXPORTER_EXTEND_QUERY_PATH: /etc/postgres-exporter/queries.yml
+    volumes:
+      - ./monitoring/postgres-exporter/queries.yml:/etc/postgres-exporter/queries.yml:ro
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-statements-init:
+        condition: service_completed_successfully
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.2
+    container_name: muse-cadvisor
+    restart: unless-stopped
+    profiles: [ "monitoring" ]
+    privileged: true
+    networks:
+      - muse-network
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
 
   redis-exporter:
     image: oliver006/redis_exporter:v1.77.0
@@ -119,8 +153,8 @@ services:
     networks:
       - muse-network
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-statements-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     environment:

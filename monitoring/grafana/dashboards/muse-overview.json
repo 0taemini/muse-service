@@ -85,6 +85,76 @@
       "targets": [{"expr": "rate(redis_keyspace_hits_total[5m]) / clamp_min(rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m]), 1e-9)", "refId": "A"}],
       "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}, "overrides": []},
       "options": {"colorMode": "value", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"], "values": false}}
+    },
+    {
+      "type": "timeseries",
+      "title": "WebSocket 활성 연결 및 연결 변화",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 22},
+      "targets": [
+        {"expr": "muse_websocket_sessions_active{application=\"backend\"}", "legendFormat": "활성 세션", "refId": "A"},
+        {"expr": "rate(muse_websocket_connections_total{application=\"backend\"}[1m])", "legendFormat": "초당 연결", "refId": "B"},
+        {"expr": "rate(muse_websocket_abnormal_disconnections_total{application=\"backend\"}[1m])", "legendFormat": "초당 비정상 종료", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short", "min": 0}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "timeseries",
+      "title": "채팅 메시지 처리량 및 처리시간",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 22},
+      "targets": [
+        {"expr": "sum(rate(muse_chat_messages_total{application=\"backend\",result=\"success\"}[1m]))", "legendFormat": "성공 msg/s", "refId": "A"},
+        {"expr": "sum(rate(muse_chat_messages_total{application=\"backend\",result=\"failure\"}[1m]))", "legendFormat": "실패 msg/s", "refId": "B"},
+        {"expr": "histogram_quantile(0.95, sum by (le) (rate(muse_chat_message_processing_seconds_bucket{application=\"backend\"}[1m])))", "legendFormat": "처리시간 p95", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"min": 0}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "timeseries",
+      "title": "STOMP 프레임 처리량",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 22},
+      "targets": [
+        {"expr": "sum by (direction, command) (rate(muse_stomp_frames_total{application=\"backend\"}[1m]))", "legendFormat": "{{direction}} {{command}}", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ops", "min": 0}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "timeseries",
+      "title": "WebSocket Executor",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 30},
+      "targets": [
+        {"expr": "muse_websocket_executor_active{application=\"backend\"}", "legendFormat": "{{channel}} active", "refId": "A"},
+        {"expr": "muse_websocket_executor_queue_size{application=\"backend\"}", "legendFormat": "{{channel}} queue", "refId": "B"},
+        {"expr": "rate(muse_websocket_executor_rejected_total{application=\"backend\"}[1m])", "legendFormat": "{{channel}} rejected/s", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short", "min": 0}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "timeseries",
+      "title": "Backend 컨테이너 자원",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 30},
+      "targets": [
+        {"expr": "sum(rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service=\"backend\"}[1m]))", "legendFormat": "CPU cores", "refId": "A"},
+        {"expr": "sum(container_memory_working_set_bytes{container_label_com_docker_compose_service=\"backend\"})", "legendFormat": "Memory bytes", "refId": "B"},
+        {"expr": "sum(rate(container_network_receive_bytes_total{container_label_com_docker_compose_service=\"backend\"}[1m]) + rate(container_network_transmit_bytes_total{container_label_com_docker_compose_service=\"backend\"}[1m]))", "legendFormat": "Network bytes/s", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"min": 0}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "timeseries",
+      "title": "PostgreSQL 쿼리 통계",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 30},
+      "targets": [
+        {"expr": "sum by (operation) (rate(pg_stat_statements_calls_total[1m]))", "legendFormat": "{{operation}} calls/s", "refId": "A"},
+        {"expr": "max by (operation) (pg_stat_statements_mean_exec_time_seconds)", "legendFormat": "{{operation}} max mean sec", "refId": "B"},
+        {"expr": "sum(rate(pg_stat_statements_temp_blks_written_total[1m]))", "legendFormat": "temp blocks/s", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"min": 0}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
     }
   ],
   "refresh": "10s",

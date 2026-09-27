@@ -1,0 +1,54 @@
+pg_stat_statements:
+  query: |
+    SELECT
+      database.datname,
+      statements.queryid::text AS queryid,
+      CASE
+        WHEN statements.query ~* '^\s*select' THEN 'SELECT'
+        WHEN statements.query ~* '^\s*insert' THEN 'INSERT'
+        WHEN statements.query ~* '^\s*update' THEN 'UPDATE'
+        WHEN statements.query ~* '^\s*delete' THEN 'DELETE'
+        ELSE 'OTHER'
+      END AS operation,
+      statements.calls,
+      statements.total_exec_time / 1000 AS total_exec_time_seconds,
+      statements.mean_exec_time / 1000 AS mean_exec_time_seconds,
+      statements.rows,
+      statements.shared_blks_hit,
+      statements.shared_blks_read,
+      statements.temp_blks_written
+    FROM pg_stat_statements statements
+    JOIN pg_database database ON database.oid = statements.dbid
+    WHERE database.datname = current_database()
+  master: true
+  metrics:
+    - datname:
+        usage: LABEL
+        description: 데이터베이스 이름
+    - queryid:
+        usage: LABEL
+        description: PostgreSQL이 정규화한 쿼리 ID
+    - operation:
+        usage: LABEL
+        description: SQL 작업 유형
+    - calls:
+        usage: COUNTER
+        description: 누적 실행 횟수
+    - total_exec_time_seconds:
+        usage: COUNTER
+        description: 누적 실행시간(초)
+    - mean_exec_time_seconds:
+        usage: GAUGE
+        description: 평균 실행시간(초)
+    - rows:
+        usage: COUNTER
+        description: 누적 처리 행 수
+    - shared_blks_hit:
+        usage: COUNTER
+        description: 누적 shared block cache hit 수
+    - shared_blks_read:
+        usage: COUNTER
+        description: 누적 shared block read 수
+    - temp_blks_written:
+        usage: COUNTER
+        description: 누적 임시 block write 수

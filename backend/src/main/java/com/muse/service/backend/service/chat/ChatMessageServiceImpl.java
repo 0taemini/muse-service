@@ -17,6 +17,8 @@ import com.muse.service.backend.repository.MessageRepository;
 import com.muse.service.backend.repository.PerformanceMemberRepository;
 import com.muse.service.backend.repository.PerformanceSongSessionRepository;
 import com.muse.service.backend.repository.UserRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,10 +35,48 @@ public class ChatMessageServiceImpl implements ChatMessageService {
     private final PerformanceMemberRepository performanceMemberRepository;
     private final PerformanceSongSessionRepository performanceSongSessionRepository;
     private final UserRepository userRepository;
+    private final MeterRegistry meterRegistry;
 
     @Override
     @Transactional
     public ChatMessageResponse sendMessage(Integer chatRoomId, Integer userId, ChatMessageSendRequest request) {
+        long startedAt = System.nanoTime();
+        String result = "success";
+        try {
+            ChatMessageResponse response = doSendMessage(chatRoomId, userId, request);
+            Counter.builder("muse.chat.messages")
+                    .tag("result", "success")
+                    .tag("reason", "none")
+                    .register(meterRegistry)
+                    .increment();
+            return response;
+        } catch (CustomException exception) {
+            result = exception.getErrorCode().name();
+            Counter.builder("muse.chat.messages")
+                    .tag("result", "failure")
+                    .tag("reason", result)
+                    .register(meterRegistry)
+                    .increment();
+            throw exception;
+        } catch (RuntimeException exception) {
+            result = "UNEXPECTED";
+            Counter.builder("muse.chat.messages")
+                    .tag("result", "failure")
+                    .tag("reason", result)
+                    .register(meterRegistry)
+                    .increment();
+            throw exception;
+        } finally {
+            io.micrometer.core.instrument.Timer.builder("muse.chat.message.processing")
+                    .description("채팅 메시지 검증 및 저장 처리시간")
+                    .tag("result", result)
+                    .publishPercentileHistogram()
+                    .register(meterRegistry)
+                    .record(System.nanoTime() - startedAt, java.util.concurrent.TimeUnit.NANOSECONDS);
+        }
+    }
+
+    private ChatMessageResponse doSendMessage(Integer chatRoomId, Integer userId, ChatMessageSendRequest request) {
         User sender = findUser(userId);
         ChatRoom chatRoom = chatRoomRepository.findById(chatRoomId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CHAT_ROOM_NOT_FOUND));

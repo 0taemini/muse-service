@@ -1,0 +1,72 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "type": "timeseries", "title": "WebSocket 활성 연결", "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0},
+      "targets": [
+        {"expr": "muse_websocket_sessions_active{application=\"backend\"}", "legendFormat": "활성 세션", "refId": "A"},
+        {"expr": "rate(muse_websocket_connections_total{application=\"backend\"}[1m])", "legendFormat": "연결/s", "refId": "B"},
+        {"expr": "rate(muse_websocket_abnormal_disconnections_total{application=\"backend\"}[1m])", "legendFormat": "비정상 종료/s", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"min": 0}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "timeseries", "title": "채팅 처리량 및 p95", "gridPos": {"h": 8, "w": 8, "x": 8, "y": 0},
+      "targets": [
+        {"expr": "sum(rate(muse_chat_messages_total{application=\"backend\",result=\"success\"}[1m]))", "legendFormat": "성공 msg/s", "refId": "A"},
+        {"expr": "sum(rate(muse_chat_messages_total{application=\"backend\",result=\"failure\"}[1m]))", "legendFormat": "실패 msg/s", "refId": "B"},
+        {"expr": "histogram_quantile(0.95, sum by (le) (rate(muse_chat_message_processing_seconds_bucket{application=\"backend\"}[1m])))", "legendFormat": "서버 처리 p95(s)", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"min": 0}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "timeseries", "title": "STOMP 프레임", "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0},
+      "targets": [{"expr": "sum by (direction, command) (rate(muse_stomp_frames_total{application=\"backend\"}[1m]))", "legendFormat": "{{direction}} {{command}}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "ops", "min": 0}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "timeseries", "title": "WebSocket Executor", "gridPos": {"h": 8, "w": 8, "x": 0, "y": 8},
+      "targets": [
+        {"expr": "muse_websocket_executor_active{application=\"backend\"}", "legendFormat": "{{channel}} active", "refId": "A"},
+        {"expr": "muse_websocket_executor_queue_size{application=\"backend\"}", "legendFormat": "{{channel}} queue", "refId": "B"},
+        {"expr": "rate(muse_websocket_executor_rejected_total{application=\"backend\"}[1m])", "legendFormat": "{{channel}} rejected/s", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"min": 0}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "timeseries", "title": "Backend 컨테이너 자원", "gridPos": {"h": 8, "w": 8, "x": 8, "y": 8},
+      "targets": [
+        {"expr": "sum(rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service=\"backend\"}[1m]))", "legendFormat": "CPU cores", "refId": "A"},
+        {"expr": "sum(container_memory_working_set_bytes{container_label_com_docker_compose_service=\"backend\"})", "legendFormat": "Memory", "refId": "B"},
+        {"expr": "sum(rate(container_network_receive_bytes_total{container_label_com_docker_compose_service=\"backend\"}[1m]) + rate(container_network_transmit_bytes_total{container_label_com_docker_compose_service=\"backend\"}[1m]))", "legendFormat": "Network bytes/s", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"min": 0}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "timeseries", "title": "pg_stat_statements", "gridPos": {"h": 8, "w": 8, "x": 16, "y": 8},
+      "targets": [
+        {"expr": "sum by (operation) (rate(pg_stat_statements_calls_total[1m]))", "legendFormat": "{{operation}} calls/s", "refId": "A"},
+        {"expr": "max by (operation) (pg_stat_statements_mean_exec_time_seconds)", "legendFormat": "{{operation}} 최대 평균(s)", "refId": "B"},
+        {"expr": "sum(rate(pg_stat_statements_temp_blks_written_total[1m]))", "legendFormat": "temp blocks/s", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"min": 0}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 41,
+  "tags": ["muse", "chat", "load-test"],
+  "templating": {"list": []},
+  "time": {"from": "now-15m", "to": "now"},
+  "timezone": "browser",
+  "title": "Muse Chat Load Test Monitoring",
+  "uid": "muse-chat-load-test",
+  "version": 1
+}
